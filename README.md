@@ -19,6 +19,10 @@
 - Microsoft Office Interop PowerPoint
 - QRCoder 二维码生成
 
+## 使用文档
+
+查看详细操作指南：[801Countdown使用说明](801CountdownApp1使用说明.md)
+
 ## 官方网站
 
 [https://mdhyy.cn/tools/page/801CountdownApp1/](https://mdhyy.cn/tools/page/801CountdownApp1/)
