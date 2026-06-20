@@ -1,0 +1,47 @@
+## .NET Framework
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.vspscc
+*.vssscc
+*.sln.docstates
+
+## Visual Studio
+.vs/
+*.sln.ide/
+*.VC.db
+*.opendb
+_ReSharper*/
+*.resharper
+
+## NuGet
+packages/
+*.nupkg
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Project-specific
+icon-source.png
+lib/
+src/zsm.png
+801CountdownApp1/.vs/
+
+## Publish
+801CountdownApp1/bin/801倒计时2.0_便携版/
+
+## Tools
+packages/

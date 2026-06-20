@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>801 倒计时控制</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:root {
+  --color-black: #000000;
+  --color-dark: #1a1a1a;
+  --color-gray-dark: #2d2d2d;
+  --color-gray: #666666;
+  --color-gray-light: #999999;
+  --color-light: #e0e0e0;
+  --color-white: #ffffff;
+  --color-accent: #333333;
+
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  margin: 0; padding: 10px; background: var(--color-white); color: var(--color-black);
+  display: flex; justify-content: center; min-height: 100vh;
+}
+.container { width: 100%; max-width: 480px; padding-bottom: 32px; }
+
+/* ── 卡片 ── */
+.card {
+  border: 2px solid var(--color-black);
+  background: var(--color-white);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  transition: var(--transition-normal);
+}
+.card:hover {
+  box-shadow: 6px 6px 0 var(--color-black);
+  transform: translate(-3px, -3px);
+}
+.card-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-gray);
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-light);
+}
+
+/* ── 头部 ── */
+.header { text-align: center; padding: 10px 0 16px 0; }
+.header h1 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; }
+.header p { margin: 6px 0 0 0; font-size: 12px; color: var(--color-gray); letter-spacing: 1px; text-transform: uppercase; }
+.host-info { margin: 2px 0 0 0; font-size: 11px; color: var(--color-gray-light); letter-spacing: 0.5px; font-family: "Courier New", monospace; }
+.fg-info { margin: 2px 0 0 0; font-size: 10px; color: var(--color-gray-light); letter-spacing: 0.3px; font-family: "Courier New", monospace; word-break: break-all; }
+
+/* ── 计时器显示 ── */
+.timer-display { text-align: center; padding: 8px 0 8px 0; }
+.timer-display .time {
+  font-size: 52px;
+  font-weight: 300;
+  letter-spacing: 4px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--color-black);
+  margin: 0;
+}
+.timer-display .state-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 14px;
+  border: 2px solid var(--color-black);
+  margin-top: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.state-badge.running { background: var(--color-black); color: var(--color-white); }
+.state-badge.paused { background: var(--color-white); color: var(--color-black); }
+.state-badge.stopped { background: var(--color-black); color: var(--color-white); }
+
+/* ── 进度条 ── */
+.progress-wrap { padding: 4px 0 2px 0; }
+.progress-bar { height: 8px; background: var(--color-light); border: 1px solid var(--color-black); }
+.progress-fill { height: 100%; width: 100%; background: var(--color-black); transition: width .5s linear; }
+.progress-label { text-align: center; font-size: 12px; color: var(--color-gray); margin-top: 4px; letter-spacing: 0.5px; }
+.slide-info-row { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--color-light); font-size: 13px; font-weight: 700; letter-spacing: 1px; color: var(--color-black); }
+.slide-info-icon { margin-right: 4px; font-size: 10px; }
+.slide-progress-wrap { margin-top: 4px; padding: 0 4px; }
+.slide-progress-bar { height: 4px; background: var(--color-light); border: none; }
+.slide-progress-fill { height: 100%; width: 0%; background: var(--color-gray); transition: width .3s linear; }
+.slide-progress-label { text-align: center; font-size: 10px; color: var(--color-gray-light); margin-top: 2px; letter-spacing: 0.5px; }
+
+/* ── 按钮 ── */
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border: 2px solid var(--color-black);
+  background: var(--color-white);
+  color: var(--color-black);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  min-width: 72px;
+  flex: 1 0 auto;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.btn:hover:not(:disabled) { background: var(--color-black); color: var(--color-white); }
+.btn:active:not(:disabled) { transform: scale(.96); }
+.btn:disabled { opacity: .35; cursor: not-allowed; border-color: var(--color-gray-light); color: var(--color-gray-light); }
+.btn-start { background: var(--color-black); color: var(--color-white); }
+.btn-start:hover:not(:disabled) { background: var(--color-dark); }
+.btn-sm { padding: 8px 14px; font-size: 12px; min-width: 56px; flex: 0 1 auto; }
+
+/* ── 时间设定 ── */
+.time-set-body { padding: 2px 0; }
+.time-input-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.time-input-group input {
+  width: 90px;
+  padding: 9px 12px;
+  border: 2px solid var(--color-black);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: var(--transition-fast);
+  color: var(--color-black);
+  background: var(--color-white);
+}
+.time-input-group input:focus { background: var(--color-black); color: var(--color-white); }
+.time-input-group input:disabled { opacity: .35; border-color: var(--color-gray-light); color: var(--color-gray-light); }
+.time-input-group input:disabled:focus { background: var(--color-white); color: var(--color-gray-light); }
+.time-unit { font-size: 15px; color: var(--color-gray); font-weight: 700; letter-spacing: 0.5px; }
+.time-input-group .btn { flex: 0 0 auto; padding: 9px 24px; }
+
+.preset-section { margin-bottom: 8px; }
+.preset-label { font-size: 12px; color: var(--color-gray); font-weight: 700; margin-bottom: 6px; text-align: center; text-transform: uppercase; letter-spacing: 0.5px; }
+.preset-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.preset-btn {
+  padding: 7px 0;
+  border: 2px solid var(--color-black);
+  background: var(--color-white);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-black);
+  transition: var(--transition-fast);
+  text-align: center;
+  line-height: 1.3;
+}
+.preset-btn:hover:not(:disabled) { background: var(--color-black); color: var(--color-white); }
+.preset-btn:active:not(:disabled) { transform: scale(.93); }
+.preset-btn:disabled { opacity: .35; cursor: not-allowed; border-color: var(--color-gray-light); color: var(--color-gray-light); }
+
+.time-hint { text-align: center; font-size: 11px; color: var(--color-gray); padding: 2px 0 0 0; letter-spacing: 0.5px; }
+
+/* ── 开关 ── */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+.toggle-row + .toggle-row { border-top: 1px solid var(--color-light); }
+.toggle-row .toggle-label { font-size: 13px; flex: 1; padding-right: 10px; font-weight: 500; }
+
+.toggle { position: relative; width: 44px; height: 22px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--color-white);
+  border: 2px solid var(--color-black);
+  transition: var(--transition-fast);
+}
+.toggle .slider::before {
+  content: '';
+  position: absolute;
+  height: 12px; width: 12px;
+  left: 3px; bottom: 3px;
+  background: var(--color-black);
+  transition: var(--transition-fast);
+}
+.toggle input:checked + .slider { background: var(--color-black); }
+.toggle input:checked + .slider::before { background: var(--color-white); transform: translateX(20px); }
+
+/* ── 透明度滑块 ── */
+.slider-row { padding: 6px 0; }
+.slider-row .slider-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--color-gray); margin-bottom: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.slider-row input[type="range"] {
+  width: 100%; height: 8px;
+  -webkit-appearance: none; appearance: none;
+  background: var(--color-light);
+  border: 1px solid var(--color-black);
+  outline: none;
+}
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 20px; height: 20px;
+  border: 2px solid var(--color-black);
+  background: var(--color-white);
+  cursor: pointer;
+}
+.slider-row input[type="range"]::-webkit-slider-thumb:hover {
+  background: var(--color-black);
+}
+
+/* ── 窗口位置 ── */
+.pos-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.dpad { display: flex; flex-direction: column; align-items: center; gap: 3px; margin-top: 8px; }
+.dpad-row { display: flex; gap: 3px; }
+.dpad-btn {
+  width: 44px; height: 36px;
+  border: 2px solid var(--color-black);
+  background: var(--color-white);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+  color: var(--color-black);
+  font-weight: 700;
+}
+.dpad-btn:hover { background: var(--color-black); color: var(--color-white); }
+.dpad-btn:active { transform: scale(.92); }
+
+/* ── 页脚 ── */
+.footer { text-align: center; margin-top: 6px; font-size: 11px; color: var(--color-gray); letter-spacing: 0.5px; }
+.footer a { color: var(--color-black); text-decoration: none; font-weight: 700; }
+.footer a:hover { text-decoration: underline; }
+
+/* ── 锁定按钮 ── */
+.lock-btn {
+  background: none; border: 2px solid transparent; cursor: pointer;
+  font-size: 14px; padding: 2px 6px; transition: var(--transition-fast);
+  line-height: 1; color: var(--color-black);
+}
+.lock-btn:hover { border-color: var(--color-black); }
+
+/* ═══════════════════════════════════════
+   响应式
+   ═══════════════════════════════════════ */
+@media (max-width: 359px) {
+  body { padding: 6px; }
+  .card { padding: 12px 14px; margin-bottom: 10px; }
+  .timer-display .time { font-size: 38px; letter-spacing: 2px; }
+  .time-input-group { flex-direction: column; gap: 6px; }
+  .time-input-group input { width: 100%; max-width: 160px; }
+  .preset-grid { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .preset-btn { padding: 6px 0; font-size: 13px; }
+  .dpad-btn { width: 38px; height: 32px; font-size: 16px; }
+  .pos-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 360px) {
+  body { padding: 12px; }
+  .card { padding: 18px 20px; margin-bottom: 12px; }
+  .timer-display .time { font-size: 56px; }
+  .preset-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (min-width: 480px) {
+  body { padding: 16px; }
+  .container { max-width: 500px; }
+  .card { padding: 20px 24px; margin-bottom: 14px; }
+  .card-title { font-size: 12px; margin-bottom: 14px; }
+  .header h1 { font-size: 24px; letter-spacing: 5px; }
+  .header p { font-size: 13px; }
+  .timer-display .time { font-size: 64px; letter-spacing: 5px; }
+  .timer-display .state-badge { font-size: 13px; padding: 4px 16px; }
+  .btn { padding: 10px 24px; font-size: 15px; min-width: 80px; }
+  .btn-sm { padding: 8px 16px; font-size: 13px; min-width: 60px; }
+  .time-input-group { gap: 10px; margin-bottom: 16px; }
+  .time-input-group input { width: 100px; font-size: 24px; }
+  .time-unit { font-size: 16px; }
+  .time-input-group .btn { padding: 10px 28px; }
+  .preset-label { font-size: 13px; }
+  .preset-grid { gap: 6px; }
+  .preset-btn { padding: 8px 0; font-size: 15px; }
+  .toggle-row { padding: 7px 0; }
+  .toggle-row .toggle-label { font-size: 14px; }
+  .slider-row .slider-header { font-size: 13px; }
+  .pos-grid { gap: 8px; }
+  .dpad-btn { width: 48px; height: 40px; font-size: 20px; }
+}
+
+@media (min-width: 640px) {
+  body { padding: 24px; }
+  .container { max-width: 580px; }
+  .card { padding: 24px 32px; margin-bottom: 16px; }
+  .card-title { font-size: 13px; letter-spacing: 1.5px; margin-bottom: 16px; }
+  .header { padding: 10px 0 4px 0; }
+  .header h1 { font-size: 28px; letter-spacing: 6px; }
+  .header p { font-size: 14px; }
+  .timer-display { padding: 16px 0 12px 0; }
+  .timer-display .time { font-size: 80px; letter-spacing: 6px; }
+  .timer-display .state-badge { font-size: 14px; padding: 5px 20px; margin-top: 10px; }
+  .btn { padding: 12px 28px; font-size: 16px; min-width: 100px; }
+  .btn-sm { padding: 9px 18px; font-size: 14px; min-width: 70px; }
+  .btn-row { gap: 10px; }
+  .time-input-group { gap: 12px; margin-bottom: 20px; }
+  .time-input-group input { width: 120px; padding: 11px 14px; font-size: 28px; }
+  .time-unit { font-size: 18px; }
+  .time-input-group .btn { padding: 11px 32px; font-size: 16px; }
+  .preset-label { font-size: 14px; margin-bottom: 8px; }
+  .preset-grid { grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .preset-btn { padding: 10px 0; font-size: 16px; }
+  .time-hint { font-size: 12px; padding: 6px 0 0 0; }
+  .toggle-row { padding: 9px 0; }
+  .toggle-row .toggle-label { font-size: 15px; }
+  .toggle { width: 48px; height: 26px; }
+  .toggle .slider::before { height: 14px; width: 14px; }
+  .toggle input:checked + .slider::before { transform: translateX(20px); }
+  .slider-row { padding: 10px 0; }
+  .slider-row .slider-header { font-size: 14px; }
+  .pos-grid { gap: 10px; }
+  .dpad { gap: 4px; margin-top: 12px; }
+  .dpad-btn { width: 54px; height: 44px; font-size: 22px; }
+  .footer { font-size: 13px; margin-top: 10px; }
+}
+
+/* ═══════════════════════════════════════
+   瀑布流（768以上）
+   ═══════════════════════════════════════ */
+@media (min-width: 768px) {
+  .container {
+    max-width: 840px;
+    column-count: 2;
+    column-gap: 20px;
+  }
+  .container > .card {
+    break-inside: avoid;
+    margin-bottom: 18px;
+    display: inline-block;
+    width: 100%;
+  }
+  .container > .card:last-of-type { margin-bottom: 0; }
+  .header,
+  .container > .card:nth-child(2),
+  .footer {
+    column-span: all;
+  }
+  .container > .card:nth-child(2) .time {
+    font-size: 96px;
+    letter-spacing: 10px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container { max-width: 920px; column-gap: 24px; }
+  .container > .card { margin-bottom: 22px; }
+  .card { padding: 28px 36px; }
+  .header h1 { font-size: 30px; letter-spacing: 8px; }
+  .header p { font-size: 15px; }
+  .container > .card:nth-child(2) .time { font-size: 110px; }
+  .preset-btn { padding: 12px 0; font-size: 18px; }
+  .dpad-btn { width: 60px; height: 48px; font-size: 24px; }
+}
+
+/* ── 进度条颜色（JS 控制） ── */
+.progress-fill.low { background: var(--color-black); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>801 倒计时</h1>
+    <p>Web Remote Control</p>
+    <p class="host-info">{{hostInfo}}</p>
+    <p class="fg-info" id="fgInfo">-</p>
+  </div>
+
+  <div id="disconnectBanner" style="display:none;border:2px solid #000;background:#fff;color:#000;text-align:center;padding:8px;margin-bottom:10px;font-size:13px;font-weight:700;letter-spacing:1px;">⚠ 连接断开，正在重连...</div>
+
+  <!-- Timer + State -->
+  <div class="card" style="padding-bottom:8px;">
+    <div id="timerMainArea">
+    <div class="timer-display">
+      <div class="time" id="timeDisplay">--:--</div>
+      <div><span class="state-badge" id="stateBadge">--</span></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label"><span id="progressText">--</span></div>
+    </div>
+    </div>
+    <div id="slideInfoRow" class="slide-info-row" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+        <span class="slide-info-icon">◆</span>
+        <span id="slideInfoText">P0/0</span>
+      </div>
+      <div class="slide-progress-wrap">
+        <div class="slide-progress-bar"><div class="slide-progress-fill" id="slideProgressFill"></div></div>
+        <div class="slide-progress-label"><span id="slideProgressText">0%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card" id="controlsCard">
+    <div class="card-title">Controls</div>
+    <div class="btn-row">
+      <button class="btn btn-start" id="btnToggle" onclick="doAction('/toggle')">启动</button>
+      <button class="btn" id="btnReset" onclick="doAction('/reset')">重置</button>
+    </div>
+  </div>
+
+  <!-- Flash + Sound -->
+  <div class="card">
+    <div class="card-title">Flash &amp; Sound</div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn" onclick="doAction('/flash')" style="flex:1;">闪烁窗口</button>
+      <button class="btn" id="btnTestSound" onclick="doAction('/testsound')" style="flex:1;">测试响铃</button>
+    </div>
+  </div>
+
+  <!-- Time Setting -->
+  <div class="card" id="timeSettingCard">
+    <div class="card-title">Time Setting</div>
+    <div class="time-set-body">
+      <div class="time-input-group">
+        <input type="number" id="inputMinutes" min="1" value="20" disabled>
+        <span class="time-unit">MIN</span>
+        <button class="btn" id="btnSetTime" disabled onclick="doSetTime()">设定</button>
+      </div>
+      <div class="preset-section">
+        <div class="preset-label">Quick Preset</div>
+        <div class="preset-grid" id="presetRow">
+          <button class="preset-btn" onclick="setMinutes(5, this)">5</button>
+          <button class="preset-btn" onclick="setMinutes(10, this)">10</button>
+          <button class="preset-btn" onclick="setMinutes(15, this)">15</button>
+          <button class="preset-btn" onclick="setMinutes(20, this)">20</button>
+          <button class="preset-btn" onclick="setMinutes(30, this)">30</button>
+          <button class="preset-btn" onclick="setMinutes(45, this)">45</button>
+          <button class="preset-btn" onclick="setMinutes(60, this)">60</button>
+        </div>
+      </div>
+      <div class="time-hint">设定后点击「重置」即可生效</div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="card">
+    <div class="card-title">Settings</div>
+    <div class="toggle-row">
+      <span class="toggle-label">计时器显示</span>
+      <label class="toggle"><input type="checkbox" id="chkShowTimer" onchange="doAction('/setshowtimer')"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">结束时闪烁三次</span>
+      <label class="toggle"><input type="checkbox" id="chkFlash3" onchange="doAction('/setflash3')"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">结束时提示音</span>
+      <label class="toggle"><input type="checkbox" id="chkSound" onchange="doAction('/togglesound')"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">PPT全屏自动计时</span>
+      <label class="toggle"><input type="checkbox" id="chkPptAuto" onchange="doAction('/togglepptauto')"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">显示幻灯片页数</span>
+      <label class="toggle"><input type="checkbox" id="chkSlideInfo" onchange="doAction('/toggleslideinfo')"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">允许超时继续倒计为负数</span>
+      <label class="toggle"><input type="checkbox" id="chkAllowNegative" onchange="doAction('/toggleallownegative')"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">纯PPT页数模式（隐藏时间）</span>
+      <label class="toggle"><input type="checkbox" id="chkPureSlide" onchange="doAction('/togglepureslide');pureSlideToggle(this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>Opacity</span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span id="opacityLabel">100%</span>
+          <button id="opacityLockBtn" class="lock-btn" onclick="toggleOpacityLock()" title="锁定/解锁透明度调整">🔒</button>
+        </span>
+      </div>
+      <input type="range" id="opacitySlider" min="100" max="250" value="250" disabled>
+    </div>
+  </div>
+
+  <!-- Window -->
+  <div class="card">
+    <div class="card-title">Window</div>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>Font Size</span>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span id="fontSizeLabel">16</span>
+          <button id="fontSizeLockBtn" class="lock-btn" onclick="toggleFontSizeLock()" title="锁定/解锁字体大小调整">🔒</button>
+        </span>
+      </div>
+      <input type="range" id="fontSizeSlider" min="8" max="72" value="16" disabled>
+    </div>
+    <div class="pos-grid">
+      <button class="btn btn-sm" onclick="doAction('/setlefttop')">左上</button>
+      <button class="btn btn-sm" onclick="doAction('/settopcenter')">居中</button>
+      <button class="btn btn-sm" onclick="doAction('/setrighttop')">右上</button>
+    </div>
+    <div class="dpad">
+      <div class="dpad-row"><button class="dpad-btn" onclick="doAction('/moveup')" title="上移">↑</button></div>
+      <div class="dpad-row">
+        <button class="dpad-btn" onclick="doAction('/moveleft')" title="左移">←</button>
+        <button class="dpad-btn" onclick="doAction('/movedown')" title="下移">↓</button>
+        <button class="dpad-btn" onclick="doAction('/moveright')" title="右移">→</button>
+      </div>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn" id="btnCycleScreen" onclick="doAction('/cyclescreen')" style="display:none;width:100%;">切换屏幕 <span id="screenInfo" style="font-weight:400;font-size:11px;"></span></button>
+    </div>
+  </div>
+
+  <div class="footer">
+    801 Countdown &mdash; <a href="https://mdhyy.cn/" target="_blank">@明灯花月夜</a>
+  </div>
+</div>
+
+<script>
+function doAction(path) {
+  fetch(path, { method: 'POST' });
+}
+
+function pureSlideToggle(on) {
+  document.getElementById('timerMainArea').style.display = on ? 'none' : '';
+  document.getElementById('timeSettingCard').style.display = on ? 'none' : '';
+  document.getElementById('controlsCard').style.display = on ? 'none' : '';
+  const slideRow = document.getElementById('slideInfoRow');
+  if (on) {
+    slideRow.style.display = '';
+  } else {
+    slideRow.style.display = document.getElementById('slideInfoText').textContent.startsWith('P') ? '' : 'none';
+  }
+}
+
+function doSetTime() {
+  const val = document.getElementById('inputMinutes').value;
+  if (val && parseInt(val) > 0) {
+    fetch('/settotaltime', { method: 'POST', body: val });
+  }
+}
+
+function setMinutes(m, btn) {
+  document.getElementById('inputMinutes').value = m;
+  document.querySelectorAll('#presetRow .preset-btn').forEach(b => {
+    b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
+  });
+  if (btn) {
+    btn.style.background = 'var(--color-black)';
+    btn.style.color = 'var(--color-white)';
+    btn.style.borderColor = 'var(--color-black)';
+  }
+}
+
+let fontSizeLocked = true;
+function toggleFontSizeLock() {
+  fontSizeLocked = !fontSizeLocked;
+  const slider = document.getElementById('fontSizeSlider');
+  const btn = document.getElementById('fontSizeLockBtn');
+  slider.disabled = fontSizeLocked;
+  btn.textContent = fontSizeLocked ? '🔒' : '🔓';
+}
+
+let fontSizeTimer = null;
+document.getElementById('fontSizeSlider').addEventListener('change', function() {
+  if (fontSizeLocked) return;
+  fetch('/setfontsize', { method: 'POST', body: String(this.value) });
+});
+document.getElementById('fontSizeSlider').addEventListener('input', function() {
+  if (fontSizeLocked) return;
+  document.getElementById('fontSizeLabel').textContent = this.value;
+  clearTimeout(fontSizeTimer);
+  fontSizeTimer = setTimeout(() => {
+    fetch('/setfontsize', { method: 'POST', body: String(this.value) });
+  }, 150);
+});
+
+let opacityLocked = true;
+function toggleOpacityLock() {
+  opacityLocked = !opacityLocked;
+  const slider = document.getElementById('opacitySlider');
+  const btn = document.getElementById('opacityLockBtn');
+  slider.disabled = opacityLocked;
+  btn.textContent = opacityLocked ? '🔒' : '🔓';
+}
+
+let opacityTimer = null;
+document.getElementById('opacitySlider').addEventListener('change', function() {
+  if (opacityLocked) return;
+  fetch('/setopacity', { method: 'POST', body: String(this.value) });
+});
+document.getElementById('opacitySlider').addEventListener('input', function() {
+  if (opacityLocked) return;
+  document.getElementById('opacityLabel').textContent = Math.round(this.value / 250 * 100) + '%';
+  clearTimeout(opacityTimer);
+  opacityTimer = setTimeout(() => {
+    fetch('/setopacity', { method: 'POST', body: String(this.value) });
+  }, 150);
+});
+
+function fmtTime(sec) {
+  const neg = sec < 0;
+  if (neg) sec = -sec;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return (neg ? '-' : '') + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+function getStateLabel(state) {
+  switch (state) {
+    case '运行中': return { text: 'RUNNING', cls: 'running' };
+    case '已暂停': return { text: 'PAUSED', cls: 'paused' };
+    default: return { text: state, cls: '' };
+  }
+}
+
+function updateStatus() {
+  fetch('/status').then(r => r.json()).then(data => {
+    document.getElementById('disconnectBanner').style.display = 'none';
+    const badge = getStateLabel(data.state);
+    document.getElementById('stateBadge').textContent = badge.text;
+    document.getElementById('stateBadge').className = 'state-badge ' + badge.cls;
+    document.getElementById('timeDisplay').textContent = fmtTime(data.seconds);
+    // 进度条
+    const pct = data.totalSeconds > 0 ? (data.seconds / data.totalSeconds * 100) : 0;
+    const fill = document.getElementById('progressFill');
+    const p = Math.max(0, pct);
+    fill.style.width = p + '%';
+    // 纯黑白：进度剩余 > 40% 黑色，<= 40% 黑色（保持黑白风格，去掉红色）
+    document.getElementById('progressText').textContent = Math.round(p) + '%';
+    const toggle = document.getElementById('btnToggle');
+    toggle.textContent = data.isRunning ? '暂停' : '启动';
+    toggle.className = 'btn ' + (data.isRunning ? '' : 'btn-start');
+    document.getElementById('chkShowTimer').checked = data.showTimer;
+    document.getElementById('chkFlash3').checked = data.flash3;
+    document.getElementById('chkSound').checked = data.sound;
+    document.getElementById('chkPptAuto').checked = data.pptAuto;
+    document.getElementById('chkSlideInfo').checked = data.showSlideInfo;
+    document.getElementById('chkAllowNegative').checked = data.allowNegative;
+    document.getElementById('chkPureSlide').checked = data.pureSlide;
+
+    // 纯PPT页数模式：隐藏时间、时间设置、控制按钮
+    const pureSlide = data.pureSlide;
+    document.getElementById('timerMainArea').style.display = pureSlide ? 'none' : '';
+    document.getElementById('timeSettingCard').style.display = pureSlide ? 'none' : '';
+    document.getElementById('controlsCard').style.display = pureSlide ? 'none' : '';
+
+    // 幻灯片页数 + 正向进度
+    const slideRow = document.getElementById('slideInfoRow');
+    if (data.slideInfo) {
+      document.getElementById('slideInfoText').textContent = 'P' + data.slideInfo;
+      slideRow.style.display = '';
+      const parts = data.slideInfo.split('/');
+      if (parts.length === 2) {
+        const cur = parseInt(parts[0]), tot = parseInt(parts[1]);
+        if (tot > 0 && cur > 0) {
+          const pct = Math.round(cur / tot * 100);
+          document.getElementById('slideProgressFill').style.width = pct + '%';
+          document.getElementById('slideProgressText').textContent = pct + '%';
+        } else {
+          document.getElementById('slideProgressFill').style.width = '0%';
+          document.getElementById('slideProgressText').textContent = '--';
+        }
+      }
+    } else {
+      slideRow.style.display = pureSlide ? '' : 'none';
+      if (pureSlide) {
+        document.getElementById('slideInfoText').textContent = '未获取到页数';
+        document.getElementById('slideProgressFill').style.width = '0%';
+        document.getElementById('slideProgressText').textContent = '--';
+      }
+    }
+
+    const canTime = data.setTime === 1;
+    document.getElementById('inputMinutes').disabled = !canTime;
+    document.getElementById('btnSetTime').disabled = !canTime;
+    document.querySelectorAll('#presetRow .preset-btn').forEach(b => b.disabled = !canTime);
+
+    const canControl = data.startPauseReset === 1;
+    document.getElementById('btnToggle').disabled = !canControl;
+    document.getElementById('btnReset').disabled = !canControl;
+
+    document.getElementById('opacitySlider').value = data.opacity;
+    document.getElementById('opacityLabel').textContent = Math.round(data.opacity / 250 * 100) + '%';
+
+    document.getElementById('fontSizeSlider').value = data.fontSize;
+    document.getElementById('fontSizeLabel').textContent = data.fontSize;
+
+    // 多屏切换按钮
+    var btnScreen = document.getElementById('btnCycleScreen');
+    var screenInfo = document.getElementById('screenInfo');
+    if (data.screenCount > 1) {
+      btnScreen.style.display = '';
+      screenInfo.textContent = data.screenIndex + '/' + data.screenCount;
+    } else {
+      btnScreen.style.display = 'none';
+    }
+
+    // 前台应用信息
+    document.getElementById('fgInfo').textContent = data.foregroundInfo || '-';
+  }).catch(() => {
+    document.getElementById('disconnectBanner').style.display = '';
+  });
+}
+
+function initStatus() {
+  fetch('/status').then(r => r.json()).then(data => {
+    document.getElementById('inputMinutes').value = data.minutes;
+  }).catch(() => {});
+}
+
+setInterval(updateStatus, 1000);
+initStatus();
+updateStatus();
+</script>
+</body>
+</html>
