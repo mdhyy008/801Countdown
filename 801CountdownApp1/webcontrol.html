@@ -8,6 +8,7 @@
 <style>
 *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 :root {
+  color-scheme: light dark;
   --color-black: #000000;
   --color-dark: #1a1a1a;
   --color-gray-dark: #2d2d2d;
@@ -16,6 +17,9 @@
   --color-light: #e0e0e0;
   --color-white: #ffffff;
   --color-accent: #333333;
+  --color-surface-2: #f2f2f2;
+  --color-placeholder: #e6e6e6;
+  --login-scrim: rgba(255, 255, 255, .96);
 
   --spacing-xs: 0.5rem;
   --spacing-sm: 0.75rem;
@@ -56,12 +60,260 @@ body {
   border-bottom: 1px solid var(--color-light);
 }
 
+/* ── 顶部导航栏 ── */
+.topnav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 8px 0 16px;
+  background: var(--color-white);
+  border: 2px solid var(--color-black);
+  margin-bottom: 12px;
+}
+.topnav-title { flex: 1; font-size: 20px; font-weight: 900; letter-spacing: 3px; color: var(--color-black); }
+.menu-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+  border: 2px solid var(--color-black); background: var(--color-white);
+  cursor: pointer; transition: var(--transition-fast);
+}
+.menu-btn:hover { background: var(--color-black); }
+.menu-btn:hover svg rect { fill: var(--color-white); }
+.menu-panel {
+  position: absolute; top: 100%; right: 0; z-index: 30;
+  display: none; min-width: 150px;
+  background: var(--color-white); border: 2px solid var(--color-black);
+  box-shadow: 6px 6px 0 var(--color-black);
+}
+.menu-panel.show { display: block; }
+.menu-item {
+  display: block; width: 100%; padding: 10px 16px;
+  border: none; background: none; text-align: left;
+  font-size: 13px; font-weight: 700; letter-spacing: 1px;
+  color: var(--color-black); cursor: pointer;
+}
+.menu-item:hover:not(:disabled) { background: var(--color-black); color: var(--color-white); }
+.menu-item:disabled { color: var(--color-gray-light); cursor: not-allowed; }
+
+/* ── 文档预览 ── */
+.preview-overlay { position: fixed; inset: 0; z-index: 95; background: rgba(0, 0, 0, .55); display: none; }
+.preview-overlay.show { display: block; }
+.preview-panel {
+  position: absolute; inset: 10px; background: var(--color-white);
+  border: 2px solid var(--color-black); display: flex; flex-direction: column;
+}
+.preview-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-bottom: 2px solid var(--color-black); flex-shrink: 0;
+}
+.preview-head-title { flex: none; font-size: 13px; font-weight: 900; letter-spacing: 2px; }
+.preview-close { margin-left: auto; }
+.preview-progress { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.preview-progress-track {
+  width: 100px; height: 8px; border: 1px solid var(--color-black);
+  background: var(--color-white);
+}
+.preview-progress-bar { height: 100%; width: 0; background: var(--color-black); transition: width .2s linear; }
+.preview-progress-value {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  color: var(--color-gray); white-space: nowrap;
+}
+@media (max-width: 420px) {
+  .preview-progress-track { width: 56px; }
+  .preview-progress-value { font-size: 10px; }
+}
+.preview-status {
+  display: none; width: 10px; height: 10px; border-radius: 50%;
+  background: #b5b5b5; border: 1px solid var(--color-black); flex: none;
+}
+.preview-panel.podium .preview-status { display: inline-block; }
+.preview-status.online { background: #19b45c; }
+.preview-status.offline { background: #e02b2b; }
+.preview-status-text {
+  display: none; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  white-space: nowrap; color: var(--color-black);
+}
+.preview-panel.podium .preview-status-text.show { display: inline; }
+.preview-podium { display: flex; align-items: center; gap: 8px; flex: none; }
+.preview-podium-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; white-space: nowrap; }
+@media (max-width: 520px) {
+  .preview-head { gap: 6px; }
+  .preview-podium { gap: 6px; min-width: 0; }
+  .preview-podium-label { font-size: 9px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+  .preview-progress-track { width: 40px; }
+  .preview-status-text { font-size: 9px; letter-spacing: 0; }
+}
+@media (max-width: 560px) {
+  .preview-panel.podium:has(.preview-status-text.show) .preview-head-title { display: none; }
+}
+.preview-close {
+  width: 30px; height: 30px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--color-black); background: var(--color-white); cursor: pointer;
+}
+.preview-close:hover { background: var(--color-black); }
+.preview-close:hover svg line { stroke: var(--color-white); }
+.preview-body { flex: 1; overflow: auto; padding: 12px; background: var(--color-surface-2); }
+.preview-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px; align-content: start;
+}
+.preview-page { min-width: 0; }
+.preview-thumb {
+  position: relative; min-height: 90px;
+  background: var(--color-placeholder); border: 1px solid var(--color-gray-light);
+}
+.preview-thumb img {
+  display: block; width: 100%; height: auto;
+  background: var(--color-white);
+}
+.preview-caption { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--color-gray); margin: 0 0 4px; }
+.preview-page.current .preview-thumb {
+  position: relative; z-index: 4;
+  border-color: transparent;
+}
+.preview-page.current .preview-caption { color: var(--color-black); }
+.preview-panel.podium .preview-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 22px; }
+.preview-panel.podium .preview-caption { display: none; }
+.preview-panel.podium .preview-thumb { cursor: pointer; }
+.preview-panel.podium .preview-page.current .preview-thumb::after { inset: -10px; }
+.preview-page.current .preview-thumb::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  pointer-events: none;
+  background:
+    linear-gradient(#2f7bff, #2f7bff) left top / 26px 5px no-repeat,
+    linear-gradient(#2f7bff, #2f7bff) left top / 5px 26px no-repeat,
+    linear-gradient(#2f7bff, #2f7bff) right top / 26px 5px no-repeat,
+    linear-gradient(#2f7bff, #2f7bff) right top / 5px 26px no-repeat,
+    linear-gradient(#2f7bff, #2f7bff) left bottom / 26px 5px no-repeat,
+    linear-gradient(#2f7bff, #2f7bff) left bottom / 5px 26px no-repeat,
+    linear-gradient(#2f7bff, #2f7bff) right bottom / 26px 5px no-repeat,
+    linear-gradient(#2f7bff, #2f7bff) right bottom / 5px 26px no-repeat;
+}
+.disconnect-banner { align-items: center; justify-content: center; gap: 8px; }
+.disconnect-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #e02b2b; border: 1px solid var(--color-black); flex: none;
+}
+.preview-loading, .preview-message {
+  text-align: center; padding: 32px 12px;
+  font-size: 13px; font-weight: 700; letter-spacing: 1px; color: var(--color-gray);
+}
+.zoom-overlay {
+  position: fixed; inset: 0; z-index: 105; display: none;
+  align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .85);
+}
+.zoom-overlay.show { display: flex; }
+.zoom-overlay img { max-width: 94vw; max-height: 90vh; display: block; background: #fff; }
+.zoom-close {
+  position: absolute; top: 14px; right: 14px;
+  width: 40px; height: 40px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid #fff; background: transparent; cursor: pointer;
+}
+.zoom-close:hover { background: #fff; }
+.zoom-close:hover svg line { stroke: #000; }
+.zoom-follow {
+  position: absolute; top: 14px; left: 14px;
+  padding: 8px 16px; border: 2px solid #fff; background: transparent;
+  color: #fff; font-family: inherit; font-size: 12px; font-weight: 700;
+  letter-spacing: 1px; cursor: pointer;
+}
+.zoom-follow.active { background: #fff; color: #000; }
+.thumb-menu {
+  position: fixed; z-index: 106; min-width: 130px; display: none;
+  background: var(--color-white); border: 2px solid var(--color-black); box-shadow: 6px 6px 0 rgba(0, 0, 0, .25);
+}
+.thumb-menu.show { display: block; }
+.thumb-menu button {
+  display: block; width: 100%; padding: 9px 14px; text-align: left;
+  border: 0; background: var(--color-white); color: var(--color-black);
+  font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 1px; cursor: pointer;
+}
+.thumb-menu button:hover { background: var(--color-black); color: var(--color-white); }
+
+/* ── 翻页笔 ── */
+.presenter {
+  position: fixed; inset: 0; z-index: 108; display: none;
+  flex-direction: column; background: var(--color-white);
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  user-select: none; -webkit-user-select: none;
+}
+.presenter.show { display: flex; }
+.presenter-head { display: flex; align-items: center; gap: 12px; flex: none; }
+.presenter-status {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #b5b5b5; border: 1px solid var(--color-black); flex: none;
+}
+.presenter-status.online { background: #19b45c; }
+.presenter-status.offline { background: #e02b2b; }
+.presenter-back {
+  width: 36px; height: 36px; padding: 0; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--color-black); background: var(--color-white); cursor: pointer;
+}
+.presenter-title { font-size: 14px; font-weight: 900; letter-spacing: 2px; }
+.presenter-counter { margin-left: auto; font-family: "Courier New", monospace; font-size: 14px; font-weight: 700; }
+.presenter-body {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; touch-action: pan-y;
+}
+.presenter-pagenum { font-size: 72px; font-weight: 200; line-height: 1; letter-spacing: 2px; }
+.presenter-preview {
+  margin-top: 14px; border: 2px solid var(--color-black); background: var(--color-surface-2);
+  display: none; overflow: hidden; line-height: 0;
+}
+.presenter-preview.show { display: block; }
+.presenter-preview img {
+  display: block; width: auto; height: auto;
+  max-width: min(70vw, 420px); max-height: 30vh;
+}
+.presenter-hint { margin-top: 10px; min-height: 18px; font-size: 12px; letter-spacing: 1px; color: var(--color-gray); text-align: center; }
+.presenter-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: none; }
+.presenter-btn {
+  height: 132px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; border: 2px solid var(--color-black); background: var(--color-white); color: var(--color-black);
+  font-family: inherit; font-size: 16px; font-weight: 900; letter-spacing: 2px;
+  cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+.presenter-btn:active { background: var(--color-black); color: var(--color-white); }
+.presenter-btn:active svg path { stroke: var(--color-white); }
+.presenter-btn:disabled { opacity: .35; cursor: not-allowed; }
+.presenter-extra { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; flex: none; }
+.presenter-mode {
+  display: inline-flex; margin-top: 10px; flex: none; align-self: flex-start;
+  border: 2px solid var(--color-black); background: var(--color-white);
+}
+.presenter-mode button {
+  padding: 6px 18px; border: 0; border-left: 2px solid var(--color-black);
+  background: var(--color-white); color: var(--color-black);
+  font-family: inherit; font-size: 12px; font-weight: 900; letter-spacing: 2px;
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.presenter-mode button:first-child { border-left: 0; }
+.presenter-mode button.active { background: var(--color-black); color: var(--color-white); }
+.presenter-jump { display: flex; gap: 10px; }
+.presenter-jump input {
+  flex: 1; min-width: 0; padding: 10px 12px;
+  border: 2px solid var(--color-black); background: var(--color-white); color: var(--color-black);
+  font-family: inherit; font-size: 16px; outline: none;
+}
+.presenter-jump .btn { flex: none; min-width: 92px; }
+.presenter-tools { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.presenter-tools .btn { width: 100%; }
+
 /* ── 头部 ── */
-.header { text-align: center; padding: 10px 0 16px 0; }
+.header { text-align: center; padding: 0 0 14px 0; }
 .header h1 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; }
 .header p { margin: 6px 0 0 0; font-size: 12px; color: var(--color-gray); letter-spacing: 1px; text-transform: uppercase; }
-.host-info { margin: 2px 0 0 0; font-size: 11px; color: var(--color-gray-light); letter-spacing: 0.5px; font-family: "Courier New", monospace; }
-.fg-info { margin: 2px 0 0 0; font-size: 10px; color: var(--color-gray-light); letter-spacing: 0.3px; font-family: "Courier New", monospace; word-break: break-all; }
+.host-info { margin: 2px 0 0 0; font-size: 11px; color: var(--color-gray-light); letter-spacing: 0.5px; font-family: "Courier New", monospace; font-weight: 700; }
+.fg-info { margin: 2px 0 0 0; font-size: 10px; color: var(--color-gray-light); letter-spacing: 0.3px; font-family: "Courier New", monospace; font-weight: 700; word-break: break-all; }
 
 /* ── 计时器显示 ── */
 .timer-display { text-align: center; padding: 8px 0 8px 0; }
@@ -200,6 +452,9 @@ body {
 }
 .toggle input:checked + .slider { background: var(--color-black); }
 .toggle input:checked + .slider::before { background: var(--color-white); transform: translateX(20px); }
+.toggle input:disabled + .slider,
+.toggle input:disabled + .slider::before { opacity: .3; cursor: not-allowed; }
+.toggle-row:has(input:disabled) .toggle-label { color: var(--color-gray-light); }
 
 /* ── 透明度滑块 ── */
 .slider-row { padding: 6px 0; }
@@ -241,6 +496,38 @@ body {
 }
 .dpad-btn:hover { background: var(--color-black); color: var(--color-white); }
 .dpad-btn:active { transform: scale(.92); }
+
+/* ── 登录浮层 ── */
+.login-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: none; align-items: center; justify-content: center;
+  background: var(--login-scrim);
+}
+.login-overlay.show { display: flex; }
+#confirmOverlay { z-index: 120; }
+.login-box {
+  width: 100%; max-width: 320px; margin: 16px;
+  border: 2px solid var(--color-black); background: var(--color-white);
+  padding: 24px 22px; box-shadow: 8px 8px 0 var(--color-black);
+}
+.login-box h2 {
+  margin: 0 0 16px 0; font-size: 15px; font-weight: 900;
+  letter-spacing: 3px; text-align: center;
+}
+.login-box input {
+  width: 100%; padding: 10px 12px; margin-bottom: 10px;
+  border: 2px solid var(--color-black); background: var(--color-white);
+  color: var(--color-black); font-size: 16px; outline: none;
+  transition: var(--transition-fast);
+}
+.login-box input:focus { background: var(--color-black); color: var(--color-white); }
+.confirm-text {
+  margin: 0 0 18px 0; font-size: 13px; line-height: 1.7;
+  color: var(--color-gray-dark); word-break: break-all;
+}
+.login-box .btn { width: 100%; }
+.login-box .btn-row .btn { width: auto; flex: 1; }
+.login-error { min-height: 18px; margin-top: 8px; font-size: 12px; color: var(--color-gray); text-align: center; }
 
 /* ── 页脚 ── */
 .footer { text-align: center; margin-top: 6px; font-size: 11px; color: var(--color-gray); letter-spacing: 0.5px; }
@@ -377,18 +664,55 @@ body {
 
 /* ── 进度条颜色（JS 控制） ── */
 .progress-fill.low { background: var(--color-black); }
+
+/* ── 暗色模式 ── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-black: #f0f0f0;
+    --color-dark: #d6d6d6;
+    --color-gray-dark: #c0c0c0;
+    --color-gray: #a0a0a0;
+    --color-gray-light: #707070;
+    --color-light: #3a3a3a;
+    --color-white: #121212;
+    --color-accent: #cccccc;
+    --color-surface-2: #1a1a1a;
+    --color-placeholder: #232323;
+    --login-scrim: rgba(0, 0, 0, .92);
+  }
+  .menu-btn svg rect { fill: var(--color-black); }
+  .preview-close svg line,
+  .presenter-back svg path,
+  .presenter-btn svg path { stroke: var(--color-black); }
+  .presenter-btn:active svg path { stroke: var(--color-white); }
+}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1>801 倒计时</h1>
-    <p>Web Remote Control</p>
+    <nav class="topnav">
+      <span class="topnav-title">801 倒计时</span>
+      <button class="menu-btn" type="button" onclick="toggleMenu(event)" aria-label="菜单">
+        <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+          <rect width="16" height="2" fill="#000"></rect>
+          <rect y="5" width="16" height="2" fill="#000"></rect>
+          <rect y="10" width="16" height="2" fill="#000"></rect>
+        </svg>
+      </button>
+      <div class="menu-panel" id="menuPanel">
+        <button class="menu-item" type="button" id="menuPresenter" onclick="openPresenter()">翻页笔</button>
+        <button class="menu-item" type="button" id="menuDocPreview" onclick="openDocPreview()">文档预览</button>
+      </div>
+    </nav>
     <p class="host-info">{{hostInfo}}</p>
     <p class="fg-info" id="fgInfo">-</p>
   </div>
 
-  <div id="disconnectBanner" style="display:none;border:2px solid #000;background:#fff;color:#000;text-align:center;padding:8px;margin-bottom:10px;font-size:13px;font-weight:700;letter-spacing:1px;">⚠ 连接断开，正在重连...</div>
+  <div id="disconnectBanner" class="disconnect-banner" style="display:none;border:2px solid var(--color-black);background:var(--color-white);color:var(--color-black);padding:8px;margin-bottom:10px;font-size:13px;font-weight:700;letter-spacing:1px;">
+    <span class="disconnect-dot"></span>
+    <span>连接断开，正在重连...</span>
+  </div>
 
   <!-- Timer + State -->
   <div class="card" style="padding-bottom:8px;">
@@ -416,7 +740,7 @@ body {
 
   <!-- Controls -->
   <div class="card" id="controlsCard">
-    <div class="card-title">Controls</div>
+    <div class="card-title" id="titleControls">控制</div>
     <div class="btn-row">
       <button class="btn btn-start" id="btnToggle" onclick="doAction('/toggle')">启动</button>
       <button class="btn" id="btnReset" onclick="doAction('/reset')">重置</button>
@@ -425,16 +749,16 @@ body {
 
   <!-- Flash + Sound -->
   <div class="card">
-    <div class="card-title">Flash &amp; Sound</div>
+    <div class="card-title" id="titleFlashSound">闪烁与响铃</div>
     <div style="display:flex;gap:10px;">
-      <button class="btn" onclick="doAction('/flash')" style="flex:1;">闪烁窗口</button>
-      <button class="btn" id="btnTestSound" onclick="doAction('/testsound')" style="flex:1;">测试响铃</button>
+      <button class="btn" id="btnFlash" onclick="doAction('/flash')" style="flex:1;">闪烁窗口</button>
+      <button class="btn" id="btnTestSound" onclick="doAction('/testsound')" style="flex:1;">响铃一次</button>
     </div>
   </div>
 
   <!-- Time Setting -->
   <div class="card" id="timeSettingCard">
-    <div class="card-title">Time Setting</div>
+    <div class="card-title" id="titleTimeSetting">时间设定</div>
     <div class="time-set-body">
       <div class="time-input-group">
         <input type="number" id="inputMinutes" min="1" value="20" disabled>
@@ -442,7 +766,7 @@ body {
         <button class="btn" id="btnSetTime" disabled onclick="doSetTime()">设定</button>
       </div>
       <div class="preset-section">
-        <div class="preset-label">Quick Preset</div>
+        <div class="preset-label">快捷设定</div>
         <div class="preset-grid" id="presetRow">
           <button class="preset-btn" onclick="setMinutes(5, this)">5</button>
           <button class="preset-btn" onclick="setMinutes(10, this)">10</button>
@@ -457,9 +781,18 @@ body {
     </div>
   </div>
 
+  <!-- Presentation -->
+  <div class="card" id="presentationCard">
+    <div class="card-title" id="titlePresentation">放映</div>
+    <div class="btn-row">
+      <button class="btn" id="btnStartShow" onclick="confirmStartShow()" style="flex:1;">全屏放映</button>
+      <button class="btn" id="btnCloseShow" onclick="confirmCloseShow()" style="flex:1;">关闭放映软件</button>
+    </div>
+  </div>
+
   <!-- Settings -->
   <div class="card">
-    <div class="card-title">Settings</div>
+    <div class="card-title" id="titleSettings">功能开关</div>
     <div class="toggle-row">
       <span class="toggle-label">计时器显示</span>
       <label class="toggle"><input type="checkbox" id="chkShowTimer" onchange="doAction('/setshowtimer')"><span class="slider"></span></label>
@@ -481,16 +814,16 @@ body {
       <label class="toggle"><input type="checkbox" id="chkSlideInfo" onchange="doAction('/toggleslideinfo')"><span class="slider"></span></label>
     </div>
     <div class="toggle-row">
-      <span class="toggle-label">允许超时继续倒计为负数</span>
+      <span class="toggle-label">计时结束：显示负数</span>
       <label class="toggle"><input type="checkbox" id="chkAllowNegative" onchange="doAction('/toggleallownegative')"><span class="slider"></span></label>
     </div>
     <div class="toggle-row">
-      <span class="toggle-label">纯PPT页数模式（隐藏时间）</span>
+      <span class="toggle-label">仅显示文件页数</span>
       <label class="toggle"><input type="checkbox" id="chkPureSlide" onchange="doAction('/togglepureslide');pureSlideToggle(this.checked)"><span class="slider"></span></label>
     </div>
     <div class="slider-row">
       <div class="slider-header">
-        <span>Opacity</span>
+        <span id="titleOpacity">透明度</span>
         <span style="display:flex;align-items:center;gap:6px;">
           <span id="opacityLabel">100%</span>
           <button id="opacityLockBtn" class="lock-btn" onclick="toggleOpacityLock()" title="锁定/解锁透明度调整">🔒</button>
@@ -502,10 +835,10 @@ body {
 
   <!-- Window -->
   <div class="card">
-    <div class="card-title">Window</div>
+    <div class="card-title" id="titleWindow">窗口</div>
     <div class="slider-row">
       <div class="slider-header">
-        <span>Font Size</span>
+        <span id="titleFontSize">字号</span>
         <span style="display:flex;align-items:center;gap:6px;">
           <span id="fontSizeLabel">16</span>
           <button id="fontSizeLockBtn" class="lock-btn" onclick="toggleFontSizeLock()" title="锁定/解锁字体大小调整">🔒</button>
@@ -514,16 +847,16 @@ body {
       <input type="range" id="fontSizeSlider" min="8" max="72" value="16" disabled>
     </div>
     <div class="pos-grid">
-      <button class="btn btn-sm" onclick="doAction('/setlefttop')">左上</button>
-      <button class="btn btn-sm" onclick="doAction('/settopcenter')">居中</button>
-      <button class="btn btn-sm" onclick="doAction('/setrighttop')">右上</button>
+      <button class="btn btn-sm" id="btnPosLeftTop" onclick="doAction('/setlefttop')">左上</button>
+      <button class="btn btn-sm" id="btnPosTopCenter" onclick="doAction('/settopcenter')">居中</button>
+      <button class="btn btn-sm" id="btnPosRightTop" onclick="doAction('/setrighttop')">右上</button>
     </div>
     <div class="dpad">
-      <div class="dpad-row"><button class="dpad-btn" onclick="doAction('/moveup')" title="上移">↑</button></div>
+      <div class="dpad-row"><button class="dpad-btn" id="btnMoveUp" onclick="doAction('/moveup')" title="上移">↑</button></div>
       <div class="dpad-row">
-        <button class="dpad-btn" onclick="doAction('/moveleft')" title="左移">←</button>
-        <button class="dpad-btn" onclick="doAction('/movedown')" title="下移">↓</button>
-        <button class="dpad-btn" onclick="doAction('/moveright')" title="右移">→</button>
+        <button class="dpad-btn" id="btnMoveLeft" onclick="doAction('/moveleft')" title="左移">←</button>
+        <button class="dpad-btn" id="btnMoveDown" onclick="doAction('/movedown')" title="下移">↓</button>
+        <button class="dpad-btn" id="btnMoveRight" onclick="doAction('/moveright')" title="右移">→</button>
       </div>
     </div>
     <div style="margin-top:10px;">
@@ -533,12 +866,817 @@ body {
 
   <div class="footer">
     801 Countdown &mdash; <a href="https://mdhyy.cn/" target="_blank">@明灯花月夜</a>
+    <br><a href="https://help.web.mdhyy.cn/?doc=801countdown" target="_blank" style="text-decoration:underline;">询问AI使用方法</a>
+    <br><span id="appVersion">v{{version}}</span>
+  </div>
+</div>
+
+<div class="preview-overlay" id="previewOverlay">
+  <div class="preview-panel">
+    <div class="preview-head">
+      <span class="preview-head-title">文档预览</span>
+      <span class="preview-status" id="previewStatus" aria-label="连接状态"></span>
+      <span class="preview-status-text" id="previewStatusText">讲台PPT未全屏</span>
+      <div class="preview-progress">
+        <div class="preview-progress-track"><div class="preview-progress-bar" id="previewProgressBar"></div></div>
+        <span class="preview-progress-value" id="previewProgressValue">-</span>
+      </div>
+      <div class="preview-podium">
+        <span class="preview-podium-label">电子讲台控制模式</span>
+        <label class="toggle">
+          <input type="checkbox" id="chkPodiumMode" onchange="setPodiumMode(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <button class="preview-close" type="button" onclick="closePreview()" aria-label="关闭">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+          <line x1="1" y1="1" x2="11" y2="11" stroke="#000" stroke-width="2"></line>
+          <line x1="11" y1="1" x2="1" y2="11" stroke="#000" stroke-width="2"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="preview-body" id="previewBody"></div>
+  </div>
+</div>
+
+<div class="presenter" id="presenterPage">
+  <div class="presenter-head">
+    <div class="presenter-status" id="presenterStatus"></div>
+    <button class="presenter-back" type="button" onclick="closePresenter()" aria-label="返回">
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+        <path d="M9 1 L3 7 L9 13" fill="none" stroke="#000" stroke-width="2"></path>
+      </svg>
+    </button>
+    <span class="presenter-title">翻页笔</span>
+    <span class="presenter-counter" id="presenterCounter">- / -</span>
+  </div>
+  <div class="presenter-mode">
+    <button type="button" id="presenterModeCom" onclick="setPresenterMode(0)">COM</button>
+    <button type="button" id="presenterModeKeys" onclick="setPresenterMode(1)">模拟按键</button>
+  </div>
+  <div class="presenter-body" id="presenterBody">
+    <div class="presenter-pagenum" id="presenterPageNum">-</div>
+    <div class="presenter-preview" id="presenterPreviewBox">
+      <img id="presenterPreview" alt="">
+    </div>
+    <div class="presenter-hint" id="presenterHint"></div>
+  </div>
+  <div class="presenter-nav">
+    <button class="presenter-btn" type="button" id="presenterPrev" onclick="presenterAction('prevslide')">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <path d="M21 5 L10 17 L21 29" fill="none" stroke="#000" stroke-width="3"></path>
+      </svg>
+      <span>上一页</span>
+    </button>
+    <button class="presenter-btn" type="button" id="presenterNext" onclick="presenterAction('nextslide')">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <path d="M13 5 L24 17 L13 29" fill="none" stroke="#000" stroke-width="3"></path>
+      </svg>
+      <span>下一页</span>
+    </button>
+  </div>
+  <div class="presenter-extra">
+    <div class="presenter-jump">
+      <input type="number" id="presenterGotoInput" min="1" inputmode="numeric" placeholder="页码">
+      <button class="btn" type="button" id="presenterGotoBtn" onclick="presenterGoto()">跳转</button>
+    </div>
+    <div class="presenter-tools">
+      <button class="btn" type="button" id="presenterEndBtn" onclick="confirmPresenterEnd()">退出放映</button>
+    </div>
+  </div>
+</div>
+
+<div class="zoom-overlay" id="zoomOverlay" onclick="closeZoom()">
+  <button class="zoom-follow" id="zoomFollow" type="button" onclick="toggleZoomFollow(event)">跟随翻页</button>
+  <img id="zoomImage" alt="">
+  <button class="zoom-close" type="button" onclick="closeZoom()" aria-label="关闭">
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+      <line x1="1" y1="1" x2="13" y2="13" stroke="#fff" stroke-width="2"></line>
+      <line x1="13" y1="1" x2="1" y2="13" stroke="#fff" stroke-width="2"></line>
+    </svg>
+  </button>
+</div>
+
+<div class="thumb-menu" id="thumbMenu">
+  <button type="button" onclick="openZoom()">查看大图</button>
+  <button type="button" onclick="openZoomHd()">查看大图（高清）</button>
+  <button type="button" onclick="downloadImage()">下载图片</button>
+  <button type="button" id="thumbGoto" onclick="gotoPageFromMenu()">翻到此页</button>
+</div>
+
+<div class="login-overlay" id="confirmOverlay">
+  <div class="login-box">
+    <h2 id="confirmTitle">确认</h2>
+    <p class="confirm-text" id="confirmText"></p>
+    <div class="btn-row">
+      <button class="btn" onclick="closeConfirm()">取消</button>
+      <button class="btn btn-start" id="confirmOk" onclick="acceptConfirm()">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h2>访问密码</h2>
+    <input type="password" id="loginPassword" autocomplete="current-password"
+           onkeydown="if (event.key === 'Enter') doLogin()">
+    <button class="btn btn-start" onclick="doLogin()">进入</button>
+    <div class="login-error" id="loginError"></div>
   </div>
 </div>
 
 <script>
+let authRequired = {{needAuth}};
+
+function showLogin() {
+  authRequired = true;
+  document.getElementById('loginOverlay').classList.add('show');
+}
+
+function hideLogin() {
+  document.getElementById('loginOverlay').classList.remove('show');
+}
+
+function doLogin() {
+  const input = document.getElementById('loginPassword');
+  const error = document.getElementById('loginError');
+  fetch('/login', { method: 'POST', body: input.value }).then(r => {
+    if (r.ok) {
+      error.textContent = '';
+      input.value = '';
+      hideLogin();
+      updateStatus();
+    } else {
+      error.textContent = '密码错误';
+    }
+  }).catch(() => { error.textContent = '连接失败'; });
+}
+
+function api(url, opts) {
+  return fetch(url, opts).then(r => {
+    if (r.status === 401) {
+      showLogin();
+      const err = new Error('unauthorized');
+      err.auth = true;
+      throw err;
+    }
+    return r;
+  });
+}
+
 function doAction(path) {
-  fetch(path, { method: 'POST' });
+  api(path, { method: 'POST' }).catch(() => {});
+}
+
+function toggleMenu(ev) {
+  if (ev) ev.stopPropagation();
+  document.getElementById('menuPanel').classList.toggle('show');
+}
+
+function closeMenu() {
+  document.getElementById('menuPanel').classList.remove('show');
+}
+
+document.addEventListener('click', function (ev) {
+  const panel = document.getElementById('menuPanel');
+  if (panel.classList.contains('show') && !ev.target.closest('.topnav')) closeMenu();
+});
+
+let presenterTimer = null;
+let presenterHintUntil = 0;
+let presenterShownPage = 0;
+let presenterSlideToken = 0;
+let presenterSlideObjectUrl = null;
+
+function showPresenterSlide(page) {
+  const box = document.getElementById('presenterPreviewBox');
+  const img = document.getElementById('presenterPreview');
+  if (!page) {
+    presenterShownPage = 0;
+    presenterSlideToken++;
+    box.classList.remove('show');
+    if (presenterSlideObjectUrl) {
+      URL.revokeObjectURL(presenterSlideObjectUrl);
+      presenterSlideObjectUrl = null;
+    }
+    img.removeAttribute('src');
+    return;
+  }
+  if (page === presenterShownPage) return;
+  presenterShownPage = page;
+  const token = ++presenterSlideToken;
+  fetch('/presenterslide/' + page + '.png', { cache: 'no-store' }).then(r => {
+    if (!r.ok) throw new Error('http');
+    return r.blob();
+  }).then(blob => {
+    if (token !== presenterSlideToken) return;
+    if (presenterSlideObjectUrl) URL.revokeObjectURL(presenterSlideObjectUrl);
+    presenterSlideObjectUrl = URL.createObjectURL(blob);
+    img.src = presenterSlideObjectUrl;
+    box.classList.add('show');
+  }).catch(() => {
+    if (token !== presenterSlideToken) return;
+    box.classList.remove('show');
+  });
+}
+
+function setPresenterConnected(online) {
+  const dot = document.getElementById('presenterStatus');
+  dot.classList.toggle('online', online);
+  dot.classList.toggle('offline', !online);
+}
+
+function showPresenterHint(text, keepMs) {
+  document.getElementById('presenterHint').textContent = text;
+  presenterHintUntil = Date.now() + (keepMs || 0);
+}
+
+function openPresenter() {
+  closeMenu();
+  if (lastStatus && lastStatus.permPresentation !== 1) return;
+  document.getElementById('presenterPage').classList.add('show');
+  setPresenterConnected(true);
+  presenterHintUntil = 0;
+  presenterShownPage = 0;
+  refreshPresenter();
+  stopPresenterPoll();
+  presenterTimer = setInterval(refreshPresenter, 1000);
+}
+
+function closePresenter() {
+  stopPresenterPoll();
+  document.getElementById('presenterPage').classList.remove('show');
+  showPresenterSlide(0);
+}
+
+function stopPresenterPoll() {
+  if (presenterTimer) {
+    clearInterval(presenterTimer);
+    presenterTimer = null;
+  }
+}
+
+function refreshPresenter() {
+  api('/slidecurrent').then(r => {
+    if (!r.ok) throw new Error('http');
+    return r.json();
+  }).then(d => {
+    setPresenterConnected(true);
+    if (d && typeof d.presenterMode === 'number') updatePresenterMode(d.presenterMode);
+    const num = document.getElementById('presenterPageNum');
+    const counter = document.getElementById('presenterCounter');
+    const hint = document.getElementById('presenterHint');
+    if (d && d.ok && d.current > 0) {
+      num.textContent = d.current;
+      counter.textContent = d.total > 0 ? d.current + ' / ' + d.total : String(d.current);
+      showPresenterSlide(d.current);
+      if (Date.now() > presenterHintUntil) hint.textContent = '';
+    } else {
+      num.textContent = '-';
+      counter.textContent = '- / -';
+      showPresenterSlide(0);
+      if (Date.now() > presenterHintUntil) hint.textContent = '未在放映';
+    }
+  }).catch(e => {
+    if (e && e.auth) return;
+    setPresenterConnected(false);
+    showPresenterHint('连接已断开');
+  });
+}
+
+const presenterQueue = [];
+let presenterSending = false;
+
+function presenterRequest(url, body) {
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+  // 操作排队依次发送，避免快速连点时请求乱序导致翻页来回跳
+  presenterQueue.push({ url: url, body: body });
+  if (!presenterSending) pumpPresenterQueue();
+}
+
+function pumpPresenterQueue() {
+  if (!presenterQueue.length) {
+    presenterSending = false;
+    if (document.getElementById('presenterPage').classList.contains('show')) {
+      setTimeout(refreshPresenter, 120);
+    }
+    return;
+  }
+  const item = presenterQueue.shift();
+  presenterSending = true;
+  api(item.url, { method: 'POST', body: item.body })
+    .then(r => r.text().then(text => ({ status: r.status, text: text })))
+    .then(res => {
+      setPresenterConnected(true);
+      let d = null;
+      try { d = JSON.parse(res.text); } catch (e) {}
+      if (res.status !== 200 || (d && !d.ok)) {
+        showPresenterHint((d && d.error) || '操作失败', 2500);
+      }
+    })
+    .catch(e => {
+      if (e && e.auth) {
+        showLogin();
+        presenterQueue.length = 0;
+        presenterSending = false;
+        return;
+      }
+      setPresenterConnected(false);
+      showPresenterHint('连接已断开');
+    })
+    .then(() => {
+      if (presenterSending) pumpPresenterQueue();
+    });
+}
+
+function presenterAction(path) {
+  presenterRequest('/' + path);
+}
+
+let presenterMode = 0;
+
+function setPodiumMode(on) {
+  applyPodiumMode(on);
+  api('/setpodiummode', { method: 'POST', body: on ? '1' : '0' }).catch(() => {});
+}
+
+function applyPodiumMode(on) {
+  const panel = document.querySelector('.preview-panel');
+  if (panel) panel.classList.toggle('podium', !!on);
+}
+
+function syncPodiumModeFrom(d) {
+  if (d && typeof d.podiumMode === 'number') {
+    const chk = document.getElementById('chkPodiumMode');
+    if (chk) chk.checked = d.podiumMode === 1;
+    applyPodiumMode(d.podiumMode === 1);
+  }
+}
+
+function updatePresenterMode(mode) {
+  presenterMode = mode === 1 ? 1 : 0;
+  document.getElementById('presenterModeCom').classList.toggle('active', presenterMode === 0);
+  document.getElementById('presenterModeKeys').classList.toggle('active', presenterMode === 1);
+}
+
+function setPresenterMode(mode) {
+  mode = mode === 1 ? 1 : 0;
+  if (mode === presenterMode) return;
+  updatePresenterMode(mode);
+  api('/setpresentermode', { method: 'POST', body: String(mode) }).catch(() => {});
+}
+
+function confirmPresenterEnd() {
+  showConfirm('退出放映', '将结束当前全屏放映，确认继续？', () => presenterRequest('/endshow'));
+}
+
+function presenterGoto() {
+  const input = document.getElementById('presenterGotoInput');
+  const n = parseInt(input.value, 10);
+  if (!n || n < 1) {
+    showPresenterHint('页码无效', 2000);
+    return;
+  }
+  input.value = '';
+  presenterRequest('/gotoslide', String(n));
+}
+
+(function () {
+  const body = document.getElementById('presenterBody');
+  let sx = 0, sy = 0;
+  body.addEventListener('touchstart', ev => {
+    if (ev.touches.length !== 1) return;
+    sx = ev.touches[0].clientX;
+    sy = ev.touches[0].clientY;
+  }, { passive: true });
+  body.addEventListener('touchend', ev => {
+    const t = ev.changedTouches[0];
+    const dx = t.clientX - sx;
+    const dy = t.clientY - sy;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > 60) return;
+    presenterRequest(dx < 0 ? '/nextslide' : '/prevslide');
+  }, { passive: true });
+})();
+
+let previewAbort = null;
+let previewPollTimer = null;
+let zoomSource = null;
+let previewSession = '';
+let zoomPage = 0;
+let zoomFollow = false;
+let zoomHd = false;
+let zoomHdToken = 0;
+let zoomHdUrl = null;
+
+function stopPreviewPoll() {
+  if (previewPollTimer) {
+    clearInterval(previewPollTimer);
+    previewPollTimer = null;
+  }
+}
+
+function closePreview() {
+  if (previewAbort) {
+    try { previewAbort.abort(); } catch (e) {}
+    previewAbort = null;
+  }
+  stopPreviewPoll();
+  setPreviewConnection(null);
+  setPreviewSlideShow(false);
+  hideThumbMenu();
+  closeZoom();
+  document.getElementById('previewOverlay').classList.remove('show');
+}
+
+function setPreviewConnection(online) {
+  const dot = document.getElementById('previewStatus');
+  if (!dot) return;
+  dot.classList.remove('online', 'offline');
+  if (online === true) dot.classList.add('online');
+  else if (online === false) dot.classList.add('offline');
+}
+
+function setPreviewSlideShow(on) {
+  const el = document.getElementById('previewStatusText');
+  if (!el) return;
+  el.textContent = on ? '讲台PPT已全屏' : '讲台PPT未全屏';
+  el.classList.add('show');
+}
+
+function hideThumbMenu() {
+  document.getElementById('thumbMenu').classList.remove('show');
+}
+
+function showThumbMenu(ev, img, page) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  if (document.querySelector('.preview-panel').classList.contains('podium')) return;
+  zoomSource = img.src;
+  zoomPage = page;
+  const gotoItem = document.getElementById('thumbGoto');
+  gotoItem.style.display = (lastStatus && lastStatus.permPresentation === 1) ? '' : 'none';
+  const menu = document.getElementById('thumbMenu');
+  menu.classList.add('show');
+  const mw = menu.offsetWidth;
+  const mh = menu.offsetHeight;
+  let x = ev.clientX;
+  let y = ev.clientY;
+  if (x + mw > window.innerWidth - 8) x = window.innerWidth - mw - 8;
+  if (y + mh > window.innerHeight - 8) y = window.innerHeight - mh - 8;
+  menu.style.left = Math.max(8, x) + 'px';
+  menu.style.top = Math.max(8, y) + 'px';
+}
+
+function setPreviewProgress(done, total) {
+  const bar = document.getElementById('previewProgressBar');
+  const value = document.getElementById('previewProgressValue');
+  if (!total || total < 1) {
+    bar.style.width = '0';
+    value.textContent = '-';
+    return;
+  }
+  bar.style.width = Math.min(100, Math.round(done * 100 / total)) + '%';
+  value.textContent = done + ' / ' + total;
+}
+
+function openZoomAt(hd) {
+  if (!zoomSource) return;
+  hideThumbMenu();
+  zoomFollow = false;
+  zoomHd = hd;
+  zoomHdToken++;
+  document.getElementById('zoomFollow').classList.remove('active');
+  const img = document.getElementById('zoomImage');
+  img.src = zoomSource;
+  document.getElementById('zoomOverlay').classList.add('show');
+  if (hd) loadZoomHd(zoomPage);
+}
+
+function openZoom() { openZoomAt(false); }
+function openZoomHd() { openZoomAt(true); }
+
+function gotoPageFromMenu() {
+  hideThumbMenu();
+  const page = zoomPage;
+  if (!page) return;
+  api('/gotoslide', { method: 'POST', body: String(page) }).catch(() => {});
+}
+
+function loadZoomHd(page) {
+  if (!previewSession || !page) return;
+  const token = ++zoomHdToken;
+  fetch('/previewhd/' + previewSession + '/' + page + '.png', { credentials: 'same-origin' })
+    .then(r => {
+      if (r.status === 401) { showLogin(); throw new Error('auth'); }
+      if (!r.ok) return r.text().then(t => { throw new Error(t || '加载失败'); });
+      return r.blob();
+    })
+    .then(blob => {
+      if (token !== zoomHdToken) return;
+      if (zoomHdUrl) URL.revokeObjectURL(zoomHdUrl);
+      zoomHdUrl = URL.createObjectURL(blob);
+      document.getElementById('zoomImage').src = zoomHdUrl;
+    })
+    .catch(e => {
+      if (e && e.message !== 'auth') alert('高清图加载失败：' + ((e && e.message) || '未知错误'));
+    });
+}
+
+function closeZoom() {
+  zoomHdToken++;
+  if (zoomHdUrl) {
+    URL.revokeObjectURL(zoomHdUrl);
+    zoomHdUrl = null;
+  }
+  zoomHd = false;
+  document.getElementById('zoomOverlay').classList.remove('show');
+  document.getElementById('zoomImage').src = '';
+}
+
+function toggleZoomFollow(ev) {
+  if (ev) ev.stopPropagation();
+  zoomFollow = !zoomFollow;
+  document.getElementById('zoomFollow').classList.toggle('active', zoomFollow);
+}
+
+function downloadImage() {
+  if (!previewSession || !zoomPage) return;
+  hideThumbMenu();
+  const page = zoomPage;
+  fetch('/previewhd/' + previewSession + '/' + page + '.png', { credentials: 'same-origin' })
+    .then(r => {
+      if (r.status === 401) { showLogin(); throw new Error('auth'); }
+      if (!r.ok) return r.text().then(t => { throw new Error(t || '下载失败'); });
+      return r.blob();
+    })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '第' + page + '页.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    })
+    .catch(e => {
+      if (e && e.message !== 'auth') alert('下载失败：' + ((e && e.message) || '未知错误'));
+    });
+}
+
+document.addEventListener('click', function (ev) {
+  if (!ev.target.closest('#thumbMenu')) hideThumbMenu();
+});
+
+function openDocPreview() {
+  closeMenu();
+  if (lastStatus && lastStatus.permDocPreview !== 1) return;
+  const body = document.getElementById('previewBody');
+  document.getElementById('previewOverlay').classList.add('show');
+  fetch('/slidecurrent', { credentials: 'same-origin' })
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      syncPodiumModeFrom(d);
+      setPreviewConnection(!!d);
+      setPreviewSlideShow(!!d && d.ok && d.current > 0);
+    })
+    .catch(() => { setPreviewConnection(false); setPreviewSlideShow(false); });
+  body.innerHTML = '<div class="preview-loading">正在生成预览…</div>';
+  setPreviewProgress(0, 0);
+  if (previewAbort) {
+    try { previewAbort.abort(); } catch (e) {}
+  }
+  stopPreviewPoll();
+  const controller = new AbortController();
+  previewAbort = controller;
+
+  let grid = null;
+  const pageEls = {};
+  let previewTotal = 0;
+  let previewCurrent = 0;
+  let previewLoaded = 0;
+  let previewDone = false;
+  let previewGotoTarget = 0;
+  let previewGotoBusy = false;
+
+  function syncZoomToPage(index) {
+    if (!zoomFollow) return;
+    const overlay = document.getElementById('zoomOverlay');
+    if (!overlay.classList.contains('show')) return;
+    zoomPage = index;
+    if (zoomHd) {
+      loadZoomHd(index);
+      return;
+    }
+    const thumb = pageEls[index];
+    const img = thumb && thumb.querySelector('img');
+    if (!img) return;
+    document.getElementById('zoomImage').src = img.src;
+  }
+
+  function updateCurrentSlide(index) {
+    if (!grid || index < 1 || index > previewTotal) return;
+    grid.querySelectorAll('.preview-page.current').forEach(el => el.classList.remove('current'));
+    const target = grid.querySelectorAll('.preview-page')[index - 1];
+    if (target) target.classList.add('current');
+    previewCurrent = index;
+    syncZoomToPage(index);
+    if (previewDone) setPreviewProgress(index, previewTotal);
+  }
+
+  function gotoPreviewPage(page) {
+    const panel = document.querySelector('.preview-panel');
+    if (!panel.classList.contains('podium')) return;
+    // 连续快速点击时只保留最后一个目标，按序执行，避免请求乱序导致来回跳页
+    previewGotoTarget = page;
+    if (!previewGotoBusy) pumpPreviewGoto();
+  }
+
+  function pumpPreviewGoto() {
+    if (!previewGotoTarget) { previewGotoBusy = false; return; }
+    const page = previewGotoTarget;
+    previewGotoTarget = 0;
+    previewGotoBusy = true;
+    api('/gotoslide', { method: 'POST', body: String(page) })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && d.ok) updateCurrentSlide(page); })
+      .catch(() => {})
+      .then(pumpPreviewGoto);
+  }
+
+  function startPreviewPoll() {
+    stopPreviewPoll();
+    const tick = () => {
+      if (controller.signal.aborted) { stopPreviewPoll(); return; }
+      fetch('/slidecurrent', { credentials: 'same-origin' })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          setPreviewConnection(!!d);
+          syncPodiumModeFrom(d);
+          setPreviewSlideShow(!!d && d.ok && d.current > 0);
+          if (d && d.ok && d.current && !previewGotoBusy) updateCurrentSlide(d.current);
+        })
+        .catch(() => { setPreviewConnection(false); setPreviewSlideShow(false); });
+    };
+    tick();
+    previewPollTimer = setInterval(tick, 1500);
+  }
+
+  function showMessage(text) {
+    body.innerHTML = '';
+    const msg = document.createElement('div');
+    msg.className = 'preview-message';
+    msg.textContent = text;
+    body.appendChild(msg);
+  }
+
+  function handleLine(line) {
+    let data;
+    try { data = JSON.parse(line); } catch (e) { return; }
+    if (data.error) {
+      if (!grid) {
+        showMessage(data.error);
+        setPreviewProgress(0, 0);
+      }
+      return;
+    }
+    if (data.done) {
+      previewDone = true;
+      setPreviewProgress(previewCurrent, previewTotal);
+      startPreviewPoll();
+      return;
+    }
+    if (data.total) {
+      previewTotal = data.total;
+      previewCurrent = data.current;
+      previewSession = data.session || '';
+      previewLoaded = 0;
+      previewDone = false;
+      setPreviewProgress(0, previewTotal);
+      body.innerHTML = '';
+      grid = document.createElement('div');
+      grid.className = 'preview-grid';
+      body.appendChild(grid);
+      for (let n = 1; n <= data.total; n++) {
+        const wrap = document.createElement('div');
+        wrap.className = 'preview-page' + (n === data.current ? ' current' : '');
+        const caption = document.createElement('div');
+        caption.className = 'preview-caption';
+        caption.textContent = '第 ' + n + ' 页';
+        const thumb = document.createElement('div');
+        thumb.className = 'preview-thumb';
+        thumb.addEventListener('dblclick', () => gotoPreviewPage(n));
+        wrap.appendChild(caption);
+        wrap.appendChild(thumb);
+        grid.appendChild(wrap);
+        pageEls[n] = thumb;
+      }
+      const cur = grid.querySelector('.preview-page.current');
+      if (cur) {
+        setTimeout(() => {
+          if (!controller.signal.aborted) cur.scrollIntoView({ block: 'start' });
+        }, 100);
+      }
+      return;
+    }
+    if (data.i && data.src && pageEls[data.i] && !pageEls[data.i].firstChild) {
+      const img = document.createElement('img');
+      img.src = data.src;
+      img.alt = '第 ' + data.i + ' 页';
+      img.addEventListener('contextmenu', ev => showThumbMenu(ev, img, data.i));
+      pageEls[data.i].appendChild(img);
+      previewLoaded++;
+      setPreviewProgress(previewLoaded, previewTotal);
+      if (data.i === previewCurrent) syncZoomToPage(data.i);
+    }
+  }
+
+  fetch('/preview', { signal: controller.signal, credentials: 'same-origin' }).then(resp => {
+    if (resp.status === 401) { const e = new Error('auth'); e.auth = true; throw e; }
+    if (resp.status === 403) throw new Error('disabled');
+    if (!resp.ok) throw new Error('load');
+    if (!resp.body || !resp.body.getReader) {
+      return resp.text().then(text => {
+        text.split('\n').forEach(l => { if (l.trim()) handleLine(l); });
+      });
+    }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    function pump() {
+      return reader.read().then(r => {
+        if (r.done) {
+          if (buffer.trim()) handleLine(buffer);
+          return;
+        }
+        buffer += decoder.decode(r.value, { stream: true });
+        let idx;
+        while ((idx = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 1);
+          if (line.trim()) handleLine(line);
+        }
+        return pump();
+      });
+    }
+    return pump();
+  }).catch(e => {
+    if (e && e.name === 'AbortError') return;
+    if (e && e.auth) {
+      showMessage('需要登录后再预览');
+      showLogin();
+      return;
+    }
+    showMessage(e && e.message === 'disabled' ? '文档预览已禁用' : '加载失败');
+  });
+}
+
+let lastStatus = null;
+let confirmAction = null;
+
+function showConfirm(title, text, onAccept, acceptDisabled) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmText').textContent = text;
+  document.getElementById('confirmOk').disabled = !!acceptDisabled;
+  confirmAction = onAccept;
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('show');
+  confirmAction = null;
+}
+
+function acceptConfirm() {
+  const action = confirmAction;
+  closeConfirm();
+  if (action) action();
+}
+
+function confirmStartShow() {
+  const app = lastStatus && lastStatus.presentationApp;
+  if (app) {
+    showConfirm('全屏放映',
+      '目标软件：' + app + '。将让该软件进入全屏放映，确认继续？',
+      () => doAction('/startshow'));
+  } else {
+    showConfirm('全屏放映',
+      '未检测到正在运行的 PowerPoint 或 WPS 演示，暂时无法开始放映。',
+      null, true);
+  }
+}
+
+function confirmCloseShow() {
+  const app = lastStatus && lastStatus.presentationApp;
+  if (app) {
+    showConfirm('关闭放映软件',
+      '目标软件：' + app + '。将强制结束该软件进程，未保存的内容会丢失，确认继续？',
+      () => doAction('/closeshow'));
+  } else {
+    showConfirm('关闭放映软件',
+      '未检测到正在运行的 PowerPoint 或 WPS 演示，没有需要关闭的软件。',
+      null, true);
+  }
 }
 
 function pureSlideToggle(on) {
@@ -556,7 +1694,7 @@ function pureSlideToggle(on) {
 function doSetTime() {
   const val = document.getElementById('inputMinutes').value;
   if (val && parseInt(val) > 0) {
-    fetch('/settotaltime', { method: 'POST', body: val });
+    api('/settotaltime', { method: 'POST', body: val }).catch(() => {});
   }
 }
 
@@ -584,14 +1722,14 @@ function toggleFontSizeLock() {
 let fontSizeTimer = null;
 document.getElementById('fontSizeSlider').addEventListener('change', function() {
   if (fontSizeLocked) return;
-  fetch('/setfontsize', { method: 'POST', body: String(this.value) });
+  api('/setfontsize', { method: 'POST', body: String(this.value) }).catch(() => {});
 });
 document.getElementById('fontSizeSlider').addEventListener('input', function() {
   if (fontSizeLocked) return;
   document.getElementById('fontSizeLabel').textContent = this.value;
   clearTimeout(fontSizeTimer);
   fontSizeTimer = setTimeout(() => {
-    fetch('/setfontsize', { method: 'POST', body: String(this.value) });
+    api('/setfontsize', { method: 'POST', body: String(this.value) }).catch(() => {});
   }, 150);
 });
 
@@ -607,14 +1745,14 @@ function toggleOpacityLock() {
 let opacityTimer = null;
 document.getElementById('opacitySlider').addEventListener('change', function() {
   if (opacityLocked) return;
-  fetch('/setopacity', { method: 'POST', body: String(this.value) });
+  api('/setopacity', { method: 'POST', body: String(this.value) }).catch(() => {});
 });
 document.getElementById('opacitySlider').addEventListener('input', function() {
   if (opacityLocked) return;
   document.getElementById('opacityLabel').textContent = Math.round(this.value / 250 * 100) + '%';
   clearTimeout(opacityTimer);
   opacityTimer = setTimeout(() => {
-    fetch('/setopacity', { method: 'POST', body: String(this.value) });
+    api('/setopacity', { method: 'POST', body: String(this.value) }).catch(() => {});
   }, 150);
 });
 
@@ -626,6 +1764,13 @@ function fmtTime(sec) {
   return (neg ? '-' : '') + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
 }
 
+function setTitleDisabled(id, disabled) {
+  const el = document.getElementById(id);
+  if (!el.getAttribute('data-base')) el.setAttribute('data-base', el.textContent);
+  const base = el.getAttribute('data-base');
+  el.textContent = disabled ? base + '（已禁用）' : base;
+}
+
 function getStateLabel(state) {
   switch (state) {
     case '运行中': return { text: 'RUNNING', cls: 'running' };
@@ -635,8 +1780,11 @@ function getStateLabel(state) {
 }
 
 function updateStatus() {
-  fetch('/status').then(r => r.json()).then(data => {
+  api('/status').then(r => r.json()).then(data => {
+    lastStatus = data;
+    hideLogin();
     document.getElementById('disconnectBanner').style.display = 'none';
+
     const badge = getStateLabel(data.state);
     document.getElementById('stateBadge').textContent = badge.text;
     document.getElementById('stateBadge').className = 'state-badge ' + badge.cls;
@@ -695,10 +1843,37 @@ function updateStatus() {
     document.getElementById('inputMinutes').disabled = !canTime;
     document.getElementById('btnSetTime').disabled = !canTime;
     document.querySelectorAll('#presetRow .preset-btn').forEach(b => b.disabled = !canTime);
+    setTitleDisabled('titleTimeSetting', !canTime);
 
     const canControl = data.startPauseReset === 1;
     document.getElementById('btnToggle').disabled = !canControl;
     document.getElementById('btnReset').disabled = !canControl;
+    setTitleDisabled('titleControls', !canControl);
+
+    const canWindow = data.permWindow === 1;
+    ['btnPosLeftTop', 'btnPosTopCenter', 'btnPosRightTop', 'btnMoveUp', 'btnMoveDown', 'btnMoveLeft', 'btnMoveRight', 'btnCycleScreen'].forEach(id => {
+      document.getElementById(id).disabled = !canWindow;
+    });
+    setTitleDisabled('titleWindow', !canWindow);
+
+    const canAppearance = data.permAppearance === 1;
+    document.getElementById('opacitySlider').disabled = !canAppearance || opacityLocked;
+    document.getElementById('fontSizeSlider').disabled = !canAppearance || fontSizeLocked;
+    document.getElementById('opacityLockBtn').disabled = !canAppearance;
+    document.getElementById('fontSizeLockBtn').disabled = !canAppearance;
+    setTitleDisabled('titleOpacity', !canAppearance);
+    setTitleDisabled('titleFontSize', !canAppearance);
+
+    const canFlashSound = data.permFlashSound === 1;
+    document.getElementById('btnFlash').disabled = !canFlashSound;
+    document.getElementById('btnTestSound').disabled = !canFlashSound;
+    setTitleDisabled('titleFlashSound', !canFlashSound);
+
+    const canSettings = data.permSettings === 1;
+    ['chkShowTimer', 'chkFlash3', 'chkSound', 'chkPptAuto', 'chkSlideInfo', 'chkAllowNegative', 'chkPureSlide'].forEach(id => {
+      document.getElementById(id).disabled = !canSettings;
+    });
+    setTitleDisabled('titleSettings', !canSettings);
 
     document.getElementById('opacitySlider').value = data.opacity;
     document.getElementById('opacityLabel').textContent = Math.round(data.opacity / 250 * 100) + '%';
@@ -716,18 +1891,35 @@ function updateStatus() {
       btnScreen.style.display = 'none';
     }
 
+    const canPresentation = data.permPresentation === 1;
+    document.getElementById('btnStartShow').disabled = !canPresentation;
+    document.getElementById('btnCloseShow').disabled = !canPresentation;
+    setTitleDisabled('titlePresentation', !canPresentation);
+
+    const presenterMenuItem = document.getElementById('menuPresenter');
+    presenterMenuItem.disabled = !canPresentation;
+    presenterMenuItem.textContent = canPresentation ? '翻页笔' : '翻页笔（已禁用）';
+
+    const canDocPreview = data.permDocPreview === 1;
+    const docMenuItem = document.getElementById('menuDocPreview');
+    docMenuItem.disabled = !canDocPreview;
+    docMenuItem.textContent = canDocPreview ? '文档预览' : '文档预览（已禁用）';
+
     // 前台应用信息
     document.getElementById('fgInfo').textContent = data.foregroundInfo || '-';
-  }).catch(() => {
-    document.getElementById('disconnectBanner').style.display = '';
+  }).catch(e => {
+    if (e && e.auth) return;
+    document.getElementById('disconnectBanner').style.display = 'flex';
   });
 }
 
 function initStatus() {
-  fetch('/status').then(r => r.json()).then(data => {
+  api('/status').then(r => r.json()).then(data => {
     document.getElementById('inputMinutes').value = data.minutes;
   }).catch(() => {});
 }
+
+if (authRequired) showLogin();
 
 setInterval(updateStatus, 1000);
 initStatus();

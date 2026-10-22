@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Net;
 using System.Net.Sockets;
@@ -13,11 +15,27 @@ namespace _801CountdownApp1
         public event EventHandler<Font> FontSelected;
         public event EventHandler<int> OpacityChanged;
         public event Action<int> FontSizeChanged;
+        public event Action<int> PaddingValueChanged;
         public event Action<Color, Color> ColorChanged;
+        public event Action<CountdownStyleKind> CountdownStyleChanged;
         public Font CurrentLabelFont { get; set; }
+        private const int EM_SETCUEBANNER = 0x1501;
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
+
+        private static readonly string[] soundFiles = { "微波炉.mp3", "马里奥金币.mp3" };
         private CheckBox checkBoxShowSlideInfo;
         private CheckBox checkBoxAllowNegative;
         private CheckBox checkBoxPureSlide;
+        private CheckBox checkBoxSlideToolTip;
+        private Label labelPresenterMode;
+        private FlowLayoutPanel presenterModePanel;
+        private Button buttonPresenterCom;
+        private Button buttonPresenterKeys;
+        private bool presenterKeysMode;
+        private Image qrImage;
+        private SidebarNavButton[] navButtons;
+        private Control[] sections;
 
         public Form2()
         {
@@ -25,6 +43,7 @@ namespace _801CountdownApp1
             buttonFont.Click += ButtonFont_Click;
             trackBarOpacity.Scroll += TrackBarOpacity_Scroll;
             trackBarFontSize.Scroll += TrackBarFontSize_Scroll;
+            trackBarPadding.Scroll += TrackBarPadding_Scroll;
         }
 
         private void ButtonFont_Click(object sender, EventArgs e)
@@ -51,7 +70,13 @@ namespace _801CountdownApp1
 
         private void TrackBarOpacity_Scroll(object sender, EventArgs e)
         {
+            UpdateOpacityLabel();
             OpacityChanged?.Invoke(this, trackBarOpacity.Value);
+        }
+
+        private void UpdateOpacityLabel()
+        {
+            labelOpacityVal.Text = Math.Round(trackBarOpacity.Value * 100.0 / 250.0).ToString();
         }
 
         private void TrackBarFontSize_Scroll(object sender, EventArgs e)
@@ -62,6 +87,12 @@ namespace _801CountdownApp1
                 CurrentLabelFont = new Font(CurrentLabelFont.FontFamily, trackBarFontSize.Value, CurrentLabelFont.Style);
             }
             FontSizeChanged?.Invoke(trackBarFontSize.Value);
+        }
+
+        private void TrackBarPadding_Scroll(object sender, EventArgs e)
+        {
+            labelPaddingVal.Text = trackBarPadding.Value.ToString();
+            PaddingValueChanged?.Invoke(trackBarPadding.Value);
         }
 
         private void button3_Click(object sender, EventArgs e)
@@ -89,6 +120,16 @@ namespace _801CountdownApp1
             return ip;
         }
 
+        private void SetPresenterMode(bool keys)
+        {
+            presenterKeysMode = keys;
+            if (buttonPresenterCom == null || buttonPresenterKeys == null) return;
+            buttonPresenterCom.BackColor = keys ? Color.White : Color.Black;
+            buttonPresenterCom.ForeColor = keys ? Color.Black : Color.White;
+            buttonPresenterKeys.BackColor = keys ? Color.Black : Color.White;
+            buttonPresenterKeys.ForeColor = keys ? Color.White : Color.Black;
+        }
+
         private void buttonSave_Click(object sender, EventArgs e)
         {
             // 验证颜色代码
@@ -101,6 +142,12 @@ namespace _801CountdownApp1
             {
                 try { var c = ColorTranslator.FromHtml(textBoxBackColor.Text); }
                 catch { MessageBox.Show("背景色格式不正确，请输入如#RRGGBB或常见颜色名！", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+            }
+            // 验证远控端口
+            if (!int.TryParse(textBoxPort.Text, out int webPortVal) || webPortVal < 1 || webPortVal > 65535)
+            {
+                MessageBox.Show("访问端口必须为 1~65535 之间的整数！", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
             // 验证总时间是否为有效数字
             if (!int.TryParse(textBoxTotalTime.Text, out int totalTimeVal) || totalTimeVal < 1)
@@ -124,6 +171,15 @@ namespace _801CountdownApp1
             key.SetValue("Flash", checkBox2.Checked ? 1 : 0);
             key.SetValue("AllowNegative", checkBoxAllowNegative.Checked ? 1 : 0);
             key.SetValue("PureSlideMode", checkBoxPureSlide.Checked ? 1 : 0);
+            key.SetValue("PreAlert", checkBoxPreAlert.Checked ? 1 : 0);
+            key.SetValue("PreAlertSeconds", (int)numericPreAlert.Value);
+            int soundIndex = Math.Max(0, Math.Min(soundFiles.Length - 1, comboBoxSound.SelectedIndex));
+            key.SetValue("SoundFile", soundFiles[soundIndex]);
+            key.SetValue("WebPort", webPortVal);
+            key.SetValue("WebPassword", textBoxWebPassword.Text);
+            key.SetValue("PresenterMode", presenterKeysMode ? 1 : 0);
+            key.SetValue("RemotePresentation", checkBoxPresentation.Checked ? 1 : 0);
+            key.SetValue("RemoteDocPreview", checkBoxDocPreview.Checked ? 1 : 0);
             // 保存颜色
             if (!string.IsNullOrEmpty(textBoxForeColor.Text))
                 key.SetValue("ForeColor", ColorTranslator.FromHtml(textBoxForeColor.Text).ToArgb());
@@ -132,8 +188,14 @@ namespace _801CountdownApp1
             // 保存checkBox3、checkBox4
             key.SetValue("SetTime", checkBox3.Checked ? 1 : 0);
             key.SetValue("StartPauseReset", checkBox4.Checked ? 1 : 0);
+            key.SetValue("RemoteWindowPosition", checkBoxWin.Checked ? 1 : 0);
+            key.SetValue("RemoteAppearance", checkBoxAppearance.Checked ? 1 : 0);
+            key.SetValue("RemoteFlashSound", checkBoxFlashSound.Checked ? 1 : 0);
+            key.SetValue("RemoteSettings", checkBoxSettings.Checked ? 1 : 0);
+            key.SetValue("ShowToolTip", checkBoxSlideToolTip.Checked ? 1 : 0);
             // 保存字体
             key.SetValue("FontSizeSlider", trackBarFontSize.Value);
+            key.SetValue("Padding", trackBarPadding.Value);
             if (CurrentLabelFont != null)
             {
                 key.SetValue("FontFamily", CurrentLabelFont.FontFamily.Name);
@@ -160,6 +222,74 @@ namespace _801CountdownApp1
                     ColorChanged?.Invoke(fore, back);
                 };
                 form3.ShowDialog();
+            }
+        }
+
+        private void buttonStyleSelect_Click(object sender, EventArgs e)
+        {
+            using (var form4 = new Form4())
+            {
+                form4.StyleSelected += style => CountdownStyleChanged?.Invoke(style);
+                form4.ShowDialog();
+            }
+        }
+
+        private static Bitmap CreateQrIcon()
+        {
+            bool[,] pattern =
+            {
+                { true, true, true, false, true, true, true },
+                { true, false, true, false, true, false, true },
+                { true, true, true, false, true, true, true },
+                { false, false, false, true, false, false, false },
+                { true, true, true, false, true, false, true },
+                { true, false, true, true, false, true, false },
+                { true, true, true, false, true, false, true }
+            };
+            var bmp = new Bitmap(21, 21);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.White);
+                using (var brush = new SolidBrush(Color.Black))
+                {
+                    for (int y = 0; y < 7; y++)
+                        for (int x = 0; x < 7; x++)
+                            if (pattern[y, x]) g.FillRectangle(brush, x * 3, y * 3, 3, 3);
+                }
+            }
+            return bmp;
+        }
+
+        private void buttonQr_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new Form())
+            {
+                dialog.Text = "内网控制地址二维码";
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.ShowInTaskbar = false;
+                dialog.ClientSize = new Size(320, 372);
+                var qr = new PictureBox
+                {
+                    Image = qrImage,
+                    SizeMode = PictureBoxSizeMode.Zoom,
+                    Location = new Point(20, 16),
+                    Size = new Size(280, 280)
+                };
+                var close = new Button
+                {
+                    Text = "关闭",
+                    Size = new Size(100, 32),
+                    Location = new Point(110, 308)
+                };
+                close.Click += (s, args) => dialog.Close();
+                dialog.Controls.Add(qr);
+                dialog.Controls.Add(close);
+                dialog.AcceptButton = close;
+                dialog.CancelButton = close;
+                dialog.ShowDialog(this);
             }
         }
 
@@ -206,17 +336,58 @@ namespace _801CountdownApp1
                     trackBarFontSize.Value = fs;
                     labelFontSizeVal.Text = fs.ToString();
                 }
+                // 读取内边距
+                object paddingValue = key.GetValue("Padding");
+                if (paddingValue != null)
+                {
+                    int value = (int)paddingValue;
+                    value = Math.Max(trackBarPadding.Minimum, Math.Min(trackBarPadding.Maximum, value));
+                    trackBarPadding.Value = value;
+                }
+                labelPaddingVal.Text = trackBarPadding.Value.ToString();
                 // 读取负数超时
                 object allowNeg = key.GetValue("AllowNegative");
                 checkBoxAllowNegative.Checked = allowNeg != null && (int)allowNeg == 1;
                 // 读取纯PPT页数模式
                 object pureSlide = key.GetValue("PureSlideMode");
                 checkBoxPureSlide.Checked = pureSlide != null && (int)pureSlide == 1;
+                // 结束前提醒
+                object preAlert = key.GetValue("PreAlert");
+                checkBoxPreAlert.Checked = preAlert != null && (int)preAlert == 1;
+                object preAlertSec = key.GetValue("PreAlertSeconds");
+                int preSec = preAlertSec != null ? (int)preAlertSec : 60;
+                numericPreAlert.Value = Math.Max(numericPreAlert.Minimum, Math.Min(numericPreAlert.Maximum, preSec));
+                // 音效
+                object soundFile = key.GetValue("SoundFile");
+                int soundIndex = Array.IndexOf(soundFiles, soundFile as string);
+                comboBoxSound.SelectedIndex = soundIndex >= 0 ? soundIndex : 0;
+                // 远控端口与密码
+                object webPort = key.GetValue("WebPort");
+                textBoxPort.Text = webPort != null ? ((int)webPort).ToString() : "9051";
+                object webPassword = key.GetValue("WebPassword");
+                textBoxWebPassword.Text = webPassword as string ?? "";
+                object presenterMode = key.GetValue("PresenterMode");
+                SetPresenterMode(presenterMode is int mode && mode == 1);
+                object remotePresentation = key.GetValue("RemotePresentation");
+                checkBoxPresentation.Checked = remotePresentation == null || (int)remotePresentation == 1;
+                object remoteDocPreview = key.GetValue("RemoteDocPreview");
+                checkBoxDocPreview.Checked = remoteDocPreview == null || (int)remoteDocPreview == 1;
                 // 读取checkBox3、checkBox4
                 object setTime = key.GetValue("SetTime");
                 object startPauseReset = key.GetValue("StartPauseReset");
                 checkBox3.Checked = (setTime == null) ? true : ((int)setTime == 1);
                 checkBox4.Checked = (startPauseReset == null) ? true : ((int)startPauseReset == 1);
+                object remoteWindow = key.GetValue("RemoteWindowPosition");
+                object remoteAppearance = key.GetValue("RemoteAppearance");
+                object remoteFlashSound = key.GetValue("RemoteFlashSound");
+                object remoteSettings = key.GetValue("RemoteSettings");
+                checkBoxWin.Checked = remoteWindow == null || (int)remoteWindow == 1;
+                checkBoxAppearance.Checked = remoteAppearance == null || (int)remoteAppearance == 1;
+                checkBoxFlashSound.Checked = remoteFlashSound == null || (int)remoteFlashSound == 1;
+                checkBoxSettings.Checked = remoteSettings == null || (int)remoteSettings == 1;
+                // 鼠标悬浮提示
+                object showToolTip = key.GetValue("ShowToolTip");
+                checkBoxSlideToolTip.Checked = showToolTip == null || (int)showToolTip == 1;
                 key.Close();
             }
         }
@@ -231,30 +402,88 @@ namespace _801CountdownApp1
             checkBoxShowSlideInfo.AutoSize = true;
             checkBoxShowSlideInfo.Margin = new Padding(4);
             checkBoxShowSlideInfo.Font = new Font("微软雅黑", 9F, FontStyle.Bold);
-            basicLayout.Controls.Add(checkBoxShowSlideInfo, 0, 3);
+            basicLayout.Controls.Add(checkBoxShowSlideInfo, 0, 2);
             basicLayout.SetColumnSpan(checkBoxShowSlideInfo, 7);
             // 允许超时负数
             checkBoxAllowNegative = new CheckBox();
-            checkBoxAllowNegative.Text = "允许超时继续倒计为负数";
+            checkBoxAllowNegative.Text = "计时结束：显示负数";
             checkBoxAllowNegative.AutoSize = true;
             checkBoxAllowNegative.Margin = new Padding(4);
             checkBoxAllowNegative.Font = new Font("微软雅黑", 9F, FontStyle.Bold);
-            basicLayout.Controls.Add(checkBoxAllowNegative, 0, 4);
+            basicLayout.Controls.Add(checkBoxAllowNegative, 0, 3);
             basicLayout.SetColumnSpan(checkBoxAllowNegative, 7);
             // 纯PPT页数模式
             checkBoxPureSlide = new CheckBox();
-            checkBoxPureSlide.Text = "纯PPT页数显示模式（隐藏时间，仅显示页数）";
+            checkBoxPureSlide.Text = "仅显示文件页数";
             checkBoxPureSlide.AutoSize = true;
             checkBoxPureSlide.Margin = new Padding(4);
             checkBoxPureSlide.Font = new Font("微软雅黑", 9F, FontStyle.Bold);
-            basicLayout.Controls.Add(checkBoxPureSlide, 0, 5);
+            basicLayout.Controls.Add(checkBoxPureSlide, 0, 4);
             basicLayout.SetColumnSpan(checkBoxPureSlide, 7);
+            // 鼠标悬浮提示
+            checkBoxSlideToolTip = new CheckBox();
+            checkBoxSlideToolTip.Text = "鼠标悬浮提示";
+            checkBoxSlideToolTip.AutoSize = true;
+            checkBoxSlideToolTip.Margin = new Padding(4);
+            checkBoxSlideToolTip.Font = new Font("微软雅黑", 9F, FontStyle.Bold);
+            basicLayout.Controls.Add(checkBoxSlideToolTip, 0, 5);
+            basicLayout.SetColumnSpan(checkBoxSlideToolTip, 7);
+            // 翻页笔模式（两段式）
+            labelPresenterMode = new Label();
+            labelPresenterMode.AutoSize = true;
+            labelPresenterMode.Anchor = AnchorStyles.Left;
+            labelPresenterMode.Margin = new Padding(4, 0, 4, 0);
+            labelPresenterMode.Text = "翻页笔模式";
+
+            buttonPresenterCom = new Button();
+            buttonPresenterCom.Text = "COM";
+            buttonPresenterCom.AutoSize = true;
+            buttonPresenterCom.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            buttonPresenterCom.Padding = new Padding(16, 5, 16, 5);
+            buttonPresenterCom.Margin = new Padding(0);
+            buttonPresenterCom.FlatStyle = FlatStyle.Flat;
+            buttonPresenterCom.FlatAppearance.BorderSize = 1;
+            buttonPresenterCom.FlatAppearance.BorderColor = Color.Black;
+            buttonPresenterCom.UseVisualStyleBackColor = false;
+            buttonPresenterCom.Font = new Font("微软雅黑", 9F, FontStyle.Bold);
+            buttonPresenterCom.Click += (s2, e2) => SetPresenterMode(false);
+
+            buttonPresenterKeys = new Button();
+            buttonPresenterKeys.Text = "模拟按键";
+            buttonPresenterKeys.AutoSize = true;
+            buttonPresenterKeys.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            buttonPresenterKeys.Padding = new Padding(16, 5, 16, 5);
+            buttonPresenterKeys.Margin = new Padding(0);
+            buttonPresenterKeys.FlatStyle = FlatStyle.Flat;
+            buttonPresenterKeys.FlatAppearance.BorderSize = 1;
+            buttonPresenterKeys.FlatAppearance.BorderColor = Color.Black;
+            buttonPresenterKeys.UseVisualStyleBackColor = false;
+            buttonPresenterKeys.Font = new Font("微软雅黑", 9F, FontStyle.Bold);
+            buttonPresenterKeys.Click += (s2, e2) => SetPresenterMode(true);
+
+            presenterModePanel = new FlowLayoutPanel();
+            presenterModePanel.AutoSize = true;
+            presenterModePanel.WrapContents = false;
+            presenterModePanel.FlowDirection = FlowDirection.LeftToRight;
+            presenterModePanel.Margin = new Padding(4);
+            presenterModePanel.Controls.Add(buttonPresenterCom);
+            presenterModePanel.Controls.Add(buttonPresenterKeys);
+
+            remoteLayout.Controls.Add(labelPresenterMode, 0, 3);
+            remoteLayout.Controls.Add(presenterModePanel, 1, 3);
+            remoteLayout.SetColumnSpan(presenterModePanel, 3);
             LoadConfigFromRegistry();
+            SendMessage(textBoxWebPassword.Handle, EM_SETCUEBANNER, IntPtr.Zero, "无密码");
+            UpdateOpacityLabel();
             textBoxIP.Text = GetLocalIPAddress();
             buttonColorSelect.Click += buttonColorSelect_Click;
+            buttonStyleSelect.Click += buttonStyleSelect_Click;
             // 显示Web控制地址和二维码
             string ip = GetLocalIPAddress();
-            string url = $"http://{ip}:9051/";
+            int configuredPort = 9051;
+            if (!int.TryParse(textBoxPort.Text, out configuredPort) || configuredPort < 1 || configuredPort > 65535)
+                configuredPort = 9051;
+            string url = $"http://{ip}:{configuredPort}/";
             linkLabel1.Text = url;
             linkLabel1.Links.Clear();
             linkLabel1.Links.Add(0, url.Length, url);
@@ -263,12 +492,63 @@ namespace _801CountdownApp1
             using (QRCodeData qrCodeData = qrGenerator.CreateQrCode(url, QRCodeGenerator.ECCLevel.Q))
             using (QRCode qrCode = new QRCode(qrCodeData))
             {
-                pictureBox1.Image = qrCode.GetGraphic(8);
+                qrImage = qrCode.GetGraphic(8);
             }
-            // 自动适配窗口高度
-            this.PerformLayout();
-            this.ClientSize = new Size(640, buttonPanel.Bottom + mainLayout.Padding.Bottom + 30);
+            buttonQr.Image = CreateQrIcon();
+            // 侧边栏导航
+            labelAboutVersionVal.Text = GetBuildVersion();
+            navButtons = new[] { navBasic, navAlert, navAppearance, navRemote, navAbout };
+            sections = new Control[] { groupBoxBasic, groupBox2, groupBoxAppearance, groupBox1, groupBoxAbout };
+            for (int i = 0; i < navButtons.Length; i++)
+            {
+                int index = i;
+                navButtons[i].Click += (s, args) => ShowSection(index);
+            }
+            // 侧边栏宽度按导航文字实际占用兜底，避免 DPI 缩放后文字被裁
+            int navNeed = 0;
+            foreach (var b in navButtons)
+                navNeed = Math.Max(navNeed, TextRenderer.MeasureText(b.Text, b.Font).Width);
+            navNeed += sidebarPanel.Padding.Horizontal + 36;
+            if (rootLayout.ColumnStyles[0].Width < navNeed)
+            {
+                int delta = navNeed - (int)rootLayout.ColumnStyles[0].Width;
+                rootLayout.ColumnStyles[0].Width = navNeed;
+                this.ClientSize = new Size(this.ClientSize.Width + delta, this.ClientSize.Height);
+            }
+            ShowSection(0);
+            // 窗口不超出工作区，内容装不下时由内容区滚动
+            Rectangle work = Screen.FromControl(this).WorkingArea;
+            int maxWidth = Math.Max(work.Width - (this.Width - this.ClientSize.Width) - 10, 400);
+            int maxHeight = Math.Max(work.Height - (this.Height - this.ClientSize.Height) - 10, 300);
+            this.ClientSize = new Size(
+                Math.Min(this.ClientSize.Width, maxWidth),
+                Math.Min(this.ClientSize.Height, maxHeight));
             this.CenterToScreen();
+        }
+
+        private static string GetBuildVersion()
+        {
+            try
+            {
+                string path = Path.Combine(Application.StartupPath, "version.txt");
+                if (File.Exists(path))
+                {
+                    string text = File.ReadAllText(path).Trim();
+                    if (text.Length > 0) return text;
+                }
+            }
+            catch { }
+            return Application.ProductVersion;
+        }
+
+        private void ShowSection(int index)
+        {
+            for (int i = 0; i < sections.Length; i++)
+            {
+                bool active = i == index;
+                sections[i].Visible = active;
+                navButtons[i].Selected = active;
+            }
         }
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
@@ -279,6 +559,16 @@ namespace _801CountdownApp1
         private void linkLabelOfficial_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             System.Diagnostics.Process.Start("https://mdhyy.cn/tools/page/801CountdownApp1/");
+        }
+
+        private void linkLabelHelp_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            System.Diagnostics.Process.Start("https://help.web.mdhyy.cn/?doc=801countdown");
+        }
+
+        private void linkLabelAboutSite_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            System.Diagnostics.Process.Start("https://mdhyy.cn");
         }
     }
 }

@@ -35,6 +35,7 @@ bld/
 [Ll]ogs/
 
 ## Project-specific
+801CountdownApp1/version.counter
 icon-source.png
 lib/
 src/zsm.png
